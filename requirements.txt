@@ -1,0 +1,10 @@
+torch>=2.0.0
+torchvision
+torchaudio
+librosa
+numpy
+pyaudio
+huggingface_hub
+matplotlib
+scikit-learn
+pandas
