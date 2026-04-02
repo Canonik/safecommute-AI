@@ -168,6 +168,16 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# SafeCommute data artifacts
+raw_data/
+prepared_data/
+*.pth
+*.onnx
+*.pt
+roc_curve.png
+calibration_plots.png
+v_3/benchmark/results/
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

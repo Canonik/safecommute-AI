@@ -11,3 +11,7 @@ huggingface_hub
 matplotlib
 scikit-learn
 pandas
+panns_inference
+tabulate
+onnx
+onnxruntime
