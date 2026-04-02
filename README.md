@@ -1,6 +1,6 @@
 # SafeCommute AI
 
-## Privacy-First Audio AI for Early Detection of Escalation in Public Transport
+## Privacy-First Audio AI for Escalation Detection in Public Transport
 
 SafeCommute AI is an on-device machine learning system that detects early acoustic signs of escalation (aggressive shouting, distress screams) in crowded public transport environments.
 
@@ -10,18 +10,18 @@ Built by students at Bocconi University, the system runs entirely on-device — 
 
 ## Benchmark Results
 
-Evaluated on 2,481 held-out test samples against 5 SOTA audio models:
+Evaluated on 4,413 held-out test samples against 5 SOTA audio models:
 
-| Model | Params | Size | Latency | Accuracy | F1 | AUC-ROC |
-|---|---|---|---|---|---|---|
-| **SafeCommute (ours)** | **1.83M** | **7 MB** | **6.6 ms** | **86.9%** | **0.870** | **0.920** |
-| SafeCommute INT8 | 1.15M | 5 MB | 6.7 ms | 86.9% | 0.870 | 0.920 |
-| PANNs CNN14 | 81.8M | 320 MB | 250 ms | 57.9% | 0.425 | 0.653 |
-| AST (Transformer) | 86.6M | 330 MB | 420 ms | 57.9% | 0.425 | 0.680 |
-| Wav2Vec2 | 94.4M | 360 MB | 93 ms | 57.9% | 0.425 | 0.473 |
-| Whisper-tiny | 37.8M | 144 MB | 75 ms | 42.1% | 0.249 | 0.568 |
+| Model | Params | Size | Latency | AUC-ROC |
+|---|---|---|---|---|
+| **SafeCommute (ours)** | **1.83M** | **7 MB** | **~9 ms** | **0.971** |
+| SafeCommute INT8 | 1.15M | 5 MB | ~9 ms | 0.971 |
+| AST (Transformer) | 86.6M | 330 MB | 442 ms | 0.678 |
+| PANNs CNN14 | 81.8M | 320 MB | 250 ms | 0.658 |
+| Whisper-tiny | 37.8M | 144 MB | 72 ms | 0.567 |
+| Wav2Vec2 | 94.4M | 360 MB | 92 ms | 0.472 |
 
-**Key advantages**: 45x smaller than PANNs, 63x faster than AST, 2x higher accuracy than any general-purpose SOTA model on this domain-specific task.
+**Key advantages**: 45x smaller than PANNs, 50x faster than AST, 1.4x higher AUC than any general-purpose SOTA on this domain-specific task.
 
 ---
 
@@ -61,32 +61,48 @@ Input (1, 64, 188) log-mel spectrogram
   → FC (384→2) → Safe / Unsafe
 ```
 
-**Training data**: 11,330 samples from 5 datasets (RAVDESS, CREMA-D, TESS, SAVEE, UrbanSound8K) + ESC-50 environmental sounds, augmented with room reverb, SNR mixing, and SpecAugment.
+**Training**: Focal loss (γ=2), cosine annealing warm restarts, strong spectrogram augmentation (noise injection, time shift, frequency/time masking), mixup augmentation.
+
+**Training data**: 18,597 samples from 8 sources:
+
+| Source | Clips | Type |
+|--------|-------|------|
+| CREMA-D | 7,442 | Acted emotional speech (91 actors, 6 emotions) |
+| TESS | 2,800 | Acted emotional speech (2 speakers, 7 emotions) |
+| RAVDESS | 1,440 | Acted emotional speech (24 actors, 8 emotions) |
+| SAVEE | 480 | Acted emotional speech (4 speakers, 7 emotions) |
+| UrbanSound8K | ~6,400 | Urban environmental sounds + hard negatives |
+| ESC-50 | ~800 | Environmental sound classification |
+| YouTube | ~130 clips | Real metro ambient + real screams/confrontations |
+| Violence Dataset | 2,000 | Real-world violence vs non-violence audio |
 
 ---
 
 ## Project Structure
 
 ```
-safecommute/              # Shared Python package
-  model.py                # CNN6+SE+GRU model (single source of truth)
+safecommute/              # Shared Python package (single source of truth)
+  model.py                # CNN6+SE+GRU model definition
   constants.py            # All shared constants
-  features.py             # Feature extraction (mel spectrograms)
+  features.py             # Mel spectrogram feature extraction
   dataset.py              # PyTorch dataset class
   utils.py                # Reproducibility seeds
-  distill.py              # Knowledge distillation from PANNs CNN14
+  distill.py              # Knowledge distillation (PANNs CNN14 teacher)
   export.py               # INT8 quantization, ONNX, TorchScript
+  domain_adversarial.py   # Gradient reversal + domain-adversarial model
 
 v_3/                      # Active pipeline scripts
   data_pipeline_3.0.py    # Dataset download + feature preparation
-  train_model_3.0.py      # Training (with optional --distill flag)
+  train_model_3.0.py      # Standard training (with optional --distill)
+  train_experimental.py   # Ablation study (focal, cosine, augmentation)
+  train_domain_adversarial.py  # Domain-adversarial training
   mvp_inference_3.0.py    # Live microphone inference
-  calibrate_thresholds_3.0.py
-  mine_hard_negatives_3.0.py
-  download_datasets.py    # Standalone dataset downloader
-  benchmark/              # Evaluation suite
-    run_benchmark.py      # Benchmarks against 5 SOTA models
-    results/              # Tables, JSON, 6 visualization plots
+  calibrate_thresholds_3.0.py  # Threshold calibration
+  mine_hard_negatives_3.0.py   # False positive mining
+  download_datasets.py    # Dataset downloader
+  prepare_youtube_data.py # YouTube audio processor
+  prepare_violence_data.py # Violence dataset processor
+  benchmark/              # Evaluation suite (5 SOTA models, 6 plots)
 
 v_1/, v_2/                # Historical versions (reference only)
 ```
@@ -96,25 +112,29 @@ v_1/, v_2/                # Historical versions (reference only)
 ## Quick Start
 
 ```bash
-# 1. Setup
-sudo pacman -S portaudio ffmpeg python-pip    # Arch/CachyOS
+# 1. Setup (Arch/CachyOS)
+sudo pacman -S portaudio ffmpeg python-pip
 python -m venv venv && source venv/bin/activate.fish
 pip install -r requirements.txt
 
-# 2. Download datasets & prepare features
+# 2. Download datasets
 PYTHONPATH=. python v_3/download_datasets.py
+
+# 3. Prepare features
 PYTHONPATH=. python v_3/data_pipeline_3.0.py
+PYTHONPATH=. python v_3/prepare_youtube_data.py
+PYTHONPATH=. python v_3/prepare_violence_data.py
 
-# 3. Train
-PYTHONPATH=. python v_3/train_model_3.0.py
+# 4. Train (best recipe)
+PYTHONPATH=. python v_3/train_experimental.py --focal --cosine --strong-aug
 
-# 4. Export optimized models
+# 5. Export optimized models
 PYTHONPATH=. python -m safecommute.export
 
-# 5. Benchmark against SOTA
+# 6. Benchmark against SOTA
 PYTHONPATH=. python v_3/benchmark/run_benchmark.py
 
-# 6. Live inference (requires microphone)
+# 7. Live inference
 PYTHONPATH=. python v_3/mvp_inference_3.0.py
 ```
 
@@ -128,14 +148,6 @@ PYTHONPATH=. python v_3/mvp_inference_3.0.py
 - **Audio I/O**: PyAudio
 - **Benchmarking**: PANNs, HuggingFace Transformers (AST, Wav2Vec2, Whisper)
 - **Deployment**: INT8 quantization, TorchScript, ONNX
-
----
-
-## Troubleshooting
-
-- **Risk score stuck at ~0.47**: Microphone is muted or disconnected.
-- **CREMA-D download fails**: Run `v_3/download_datasets.py` which uses HuggingFace Hub.
-- **PYTHONPATH errors**: Always run from repo root with `PYTHONPATH=.`
 
 ---
 
