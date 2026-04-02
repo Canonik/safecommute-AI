@@ -171,12 +171,19 @@ cython_debug/
 # SafeCommute data artifacts
 raw_data/
 prepared_data/
+prepared_data_metro/
 *.pth
 *.onnx
 *.pt
+*.json
+!safecommute/**/*.json
 roc_curve.png
 calibration_plots.png
 v_3/benchmark/results/
+SESSION_REPORT.md
+CLAUDE.md
+ript.md
+.claude/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
