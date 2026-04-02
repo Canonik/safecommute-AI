@@ -1,0 +1,420 @@
+import os
+import json
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
+DATA_DIR          = "prepared_data"
+STATS_PATH        = "feature_stats.json"
+THRESHOLDS_PATH   = "thresholds.json"
+MODEL_SAVE_PATH   = "safecommute_edge_model.pth"
+
+BATCH_SIZE        = 32
+EPOCHS            = 25
+LEARNING_RATE     = 3e-4
+PATIENCE          = 6
+LABEL_SMOOTHING   = 0.1    # reduces over-confidence, improves calibration
+MIXUP_ALPHA       = 0.3    # Beta distribution parameter for mixup
+MIXUP_PROB        = 0.5    # probability of applying mixup per batch
+
+# Spectrogram dimensions (must match pipeline constants)
+N_MELS      = 64
+TIME_FRAMES = 188   # ceil(48000 / 256)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATASET
+# ─────────────────────────────────────────────────────────────────────────────
+class TensorAudioDataset(Dataset):
+    def __init__(self, split_dir, mean=0.0, std=1.0):
+        self.filepaths = []
+        self.labels    = []
+        self.mean      = mean
+        self.std       = std
+
+        for label, class_name in enumerate(['0_safe', '1_unsafe']):
+            class_dir = os.path.join(split_dir, class_name)
+            if not os.path.exists(class_dir):
+                continue
+            for file in os.listdir(class_dir):
+                if file.endswith('.pt'):
+                    self.filepaths.append(os.path.join(class_dir, file))
+                    self.labels.append(label)
+
+    def __len__(self):
+        return len(self.filepaths)
+
+    def __getitem__(self, idx):
+        features = torch.load(self.filepaths[idx], weights_only=True)
+
+        # Enforce fixed time dimension — clips may vary slightly
+        t = features.shape[-1]
+        if t > TIME_FRAMES:
+            features = features[:, :, :TIME_FRAMES]
+        elif t < TIME_FRAMES:
+            pad = torch.zeros(1, features.shape[1], TIME_FRAMES - t)
+            features = torch.cat([features, pad], dim=-1)
+
+        features = (features - self.mean) / (self.std + 1e-8)
+        return features, torch.tensor(self.labels[idx], dtype=torch.long)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODEL — CNN6 + GRU
+# ─────────────────────────────────────────────────────────────────────────────
+# Why CNN6 over MobileNetV2:
+#   MobileNetV2 was pretrained on ImageNet (photos of dogs and cars).
+#   CNN6 uses double-conv blocks with avg pooling — an architecture specifically
+#   designed for 2D spectrograms (PANNs, Kong et al. 2020). It learns
+#   mel-scale frequency patterns rather than RGB image textures.
+#
+# Why add a GRU:
+#   A single-frame CNN sees a 3-second snapshot. Escalation is a *temporal*
+#   process — rising pitch, increasing rate of speech, growing intensity.
+#   The GRU receives a sequence of CNN feature frames and can detect that
+#   upward trend, which is exactly what distinguishes real escalation from
+#   a single loud shout.
+
+class ConvBlock(nn.Module):
+    """Two conv layers with BN+ReLU, followed by average pooling."""
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x, pool=(2, 2)):
+        return F.avg_pool2d(self.net(x), pool)
+
+
+class SafeCommuteCNN(nn.Module):
+    """
+    CNN6-style encoder followed by a single-layer GRU.
+
+    Tensor flow (B = batch, F = mel bins, T = time frames):
+        Input          (B,   1,  64, 188)
+        block1 pool2x2 (B,  64,  32,  94)
+        block2 pool2x2 (B, 128,  16,  47)
+        block3 pool2x2 (B, 256,   8,  23)
+        freq avg pool  (B, 256,   1,  23)  ← collapse freq, keep time
+        squeeze+perm   (B,  23, 256)       ← GRU sequence
+        GRU hidden     (B, 128)            ← last hidden state
+        FC             (B,   2)
+    """
+    def __init__(self, n_mels=N_MELS, n_classes=2):
+        super().__init__()
+        self.bn_input = nn.BatchNorm2d(1)   # input normalisation layer
+        self.block1   = ConvBlock(1,   64)
+        self.block2   = ConvBlock(64,  128)
+        self.block3   = ConvBlock(128, 256)
+
+        # freq bins after 3 x pool(2,2): 64 -> 32 -> 16 -> 8
+        freq_after_blocks = n_mels // (2 ** 3)
+
+        # Project (256 * 8 freq bins) down to 256 before the GRU
+        self.freq_reduce = nn.Linear(256 * freq_after_blocks, 256)
+        self.gru = nn.GRU(
+            input_size=256,   # after freq_reduce projection
+            hidden_size=128,
+            num_layers=1,
+            batch_first=True,
+        )
+
+        self.dropout = nn.Dropout(0.3)
+        self.fc      = nn.Linear(128, n_classes)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+
+    def forward(self, x):
+        # x: (B, 1, 64, 188)
+        x = self.bn_input(x)
+        x = self.block1(x)    # (B, 64, 32, 94)
+        x = self.block2(x)    # (B, 128, 16, 47)
+        x = self.block3(x)    # (B, 256, 8, 23)
+
+        B, C, F, T = x.shape
+        # Reshape: (B, T, C*F) for the sequence model
+        x = x.permute(0, 3, 1, 2).reshape(B, T, C * F)  # (B, 23, 2048)
+        x = F_func(self.freq_reduce(x))                  # (B, 23, 256)
+
+        _, h = self.gru(x)                               # h: (1, B, 128)
+        x = h.squeeze(0)                                 # (B, 128)
+        x = self.dropout(x)
+        return self.fc(x)                                # (B, 2)
+
+
+# Alias to avoid name collision between 'F' (feature dim) and torch.nn.functional
+F_func = F.relu
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MIXUP AUGMENTATION
+# ─────────────────────────────────────────────────────────────────────────────
+def mixup_batch(x, y, alpha=MIXUP_ALPHA):
+    """
+    Blend two random training examples and their labels.
+    Reduces overconfidence, discourages memorisation, improves calibration.
+    Returns mixed inputs and both label sets with the interpolation weight.
+    """
+    lam  = float(np.random.beta(alpha, alpha))
+    idx  = torch.randperm(x.size(0), device=x.device)
+    x_m  = lam * x + (1 - lam) * x[idx]
+    return x_m, y, y[idx], lam
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+def load_stats():
+    if not os.path.exists(STATS_PATH):
+        print(f"Warning: '{STATS_PATH}' not found. Running without normalisation.")
+        return 0.0, 1.0
+    with open(STATS_PATH) as f:
+        s = json.load(f)
+    print(f"Feature stats: mean={s['mean']:.2f}, std={s['std']:.2f}")
+    return s['mean'], s['std']
+
+
+def compute_class_weights(dataset):
+    counts = [0, 0]
+    for lbl in dataset.labels:
+        counts[lbl] += 1
+    total   = sum(counts)
+    weights = [total / (2 * c) if c > 0 else 1.0 for c in counts]
+    print(f"  Class distribution — Safe: {counts[0]}, Unsafe: {counts[1]}")
+    print(f"  Class weights      — Safe: {weights[0]:.3f}, Unsafe: {weights[1]:.3f}")
+    return torch.tensor(weights, dtype=torch.float32)
+
+
+def calibrate_and_save_thresholds(model, val_loader, device, target_fpr=0.05):
+    """
+    After training, sweep the decision threshold across the validation set
+    to find operating points that meet explicit false-positive-rate targets
+    rather than using arbitrary hardcoded values.
+
+    Saves amber and red thresholds to thresholds.json.
+    """
+    print("\nCalibrating decision thresholds on validation set…")
+    model.eval()
+    all_probs, all_labels = [], []
+    with torch.no_grad():
+        for v_inp, v_lab in val_loader:
+            probs = torch.softmax(model(v_inp.to(device)), dim=1)[:, 1]
+            all_probs.extend(probs.cpu().tolist())
+            all_labels.extend(v_lab.tolist())
+
+    probs_arr  = np.array(all_probs)
+    labels_arr = np.array(all_labels)
+
+    fpr, tpr, thresholds = roc_curve(labels_arr, probs_arr)
+
+    # Find threshold where FPR ≤ target_fpr (conservative: RED alert)
+    valid = fpr <= target_fpr
+    if valid.any():
+        red_thresh = float(thresholds[valid][-1])
+    else:
+        red_thresh = 0.70   # fallback
+
+    # Amber: halfway between 0.5 and red threshold
+    amber_thresh = round(0.5 + (red_thresh - 0.5) / 2, 3)
+    red_thresh   = round(red_thresh, 3)
+
+    # Also report F1-optimal threshold for reference
+    f1_scores = []
+    for t in thresholds:
+        preds = (probs_arr >= t).astype(int)
+        tp = ((preds == 1) & (labels_arr == 1)).sum()
+        fp = ((preds == 1) & (labels_arr == 0)).sum()
+        fn = ((preds == 0) & (labels_arr == 1)).sum()
+        prec = tp / (tp + fp + 1e-8)
+        rec  = tp / (tp + fn + 1e-8)
+        f1_scores.append(2 * prec * rec / (prec + rec + 1e-8))
+    f1_thresh = round(float(thresholds[np.argmax(f1_scores)]), 3)
+
+    result = {
+        "amber": amber_thresh,
+        "red":   red_thresh,
+        "f1_optimal": f1_thresh,
+        "note": (f"Calibrated at target_fpr={target_fpr}. "
+                 f"Red fires when FPR≤{target_fpr*100:.0f}% on val set.")
+    }
+    with open(THRESHOLDS_PATH, 'w') as f:
+        json.dump(result, f, indent=2)
+
+    print(f"  Amber threshold : {amber_thresh}")
+    print(f"  Red threshold   : {red_thresh}  (FPR ≤ {target_fpr*100:.0f}% on val)")
+    print(f"  F1-optimal      : {f1_thresh}")
+    print(f"  Saved → {THRESHOLDS_PATH}")
+
+    # Try to plot ROC curve if matplotlib is available
+    try:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(6, 5))
+        plt.plot(fpr, tpr, label='ROC curve')
+        plt.axvline(x=target_fpr, color='r', linestyle='--',
+                    label=f'Target FPR={target_fpr}')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('SafeCommute AI — Validation ROC')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('roc_curve.png', dpi=120)
+        print("  ROC curve saved → roc_curve.png")
+        plt.close()
+    except Exception:
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRAINING LOOP
+# ─────────────────────────────────────────────────────────────────────────────
+def train():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on: {device}\n")
+
+    mean, std = load_stats()
+
+    train_dataset = TensorAudioDataset(os.path.join(DATA_DIR, 'train'), mean, std)
+    val_dataset   = TensorAudioDataset(os.path.join(DATA_DIR, 'val'),   mean, std)
+
+    if len(train_dataset) == 0:
+        print("Error: No training data found. Run data_pipeline.py first.")
+        return
+
+    print(f"Dataset — Train: {len(train_dataset)}, Val: {len(val_dataset)}")
+
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,  num_workers=2, pin_memory=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=BATCH_SIZE, shuffle=False, num_workers=2, pin_memory=True)
+
+    model     = SafeCommuteCNN().to(device)
+    class_wts = compute_class_weights(train_dataset).to(device)
+    criterion = nn.CrossEntropyLoss(weight=class_wts, label_smoothing=LABEL_SMOOTHING)
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=3
+    )
+
+    best_val_loss   = float('inf')
+    epochs_no_impro = 0
+
+    print(f"\nTraining up to {EPOCHS} epochs  |  early-stop patience={PATIENCE}\n")
+    print(f"{'Epoch':>6} {'Train Loss':>11} {'Train Acc':>10} {'Val Loss':>9} {'Val Acc':>8}")
+    print("-" * 52)
+
+    for epoch in range(EPOCHS):
+        # ── Train ────────────────────────────────────────────────────────
+        model.train()
+        run_loss = correct = total = 0
+
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            # Mixup augmentation
+            if np.random.random() < MIXUP_PROB:
+                inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels)
+                outputs = model(inputs)
+                loss    = lam * criterion(outputs, labels_a) + (1 - lam) * criterion(outputs, labels_b)
+                # For accuracy tracking use the dominant label
+                preds  = outputs.detach().argmax(1)
+                c_lab  = labels_a if lam >= 0.5 else labels_b
+            else:
+                outputs = model(inputs)
+                loss    = criterion(outputs, labels)
+                preds   = outputs.detach().argmax(1)
+                c_lab   = labels
+
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            run_loss += loss.item()
+            correct  += (preds == c_lab).sum().item()
+            total    += labels.size(0)
+
+        train_acc  = 100 * correct / total
+        train_loss = run_loss / len(train_loader)
+
+        # ── Validate ─────────────────────────────────────────────────────
+        model.eval()
+        val_loss = v_correct = v_total = 0
+        with torch.no_grad():
+            for v_inp, v_lab in val_loader:
+                v_inp, v_lab = v_inp.to(device), v_lab.to(device)
+                v_out     = model(v_inp)
+                val_loss += criterion(v_out, v_lab).item()
+                v_preds   = v_out.argmax(1)
+                v_correct += (v_preds == v_lab).sum().item()
+                v_total   += v_lab.size(0)
+
+        val_loss_avg = val_loss / max(len(val_loader), 1)
+        val_acc      = 100 * v_correct / v_total if v_total > 0 else 0
+
+        print(f"{epoch+1:>6} {train_loss:>11.4f} {train_acc:>9.2f}% "
+              f"{val_loss_avg:>9.4f} {val_acc:>7.2f}%")
+
+        scheduler.step(val_loss_avg)
+
+        if val_loss_avg < best_val_loss:
+            best_val_loss   = val_loss_avg
+            epochs_no_impro = 0
+            torch.save(model.state_dict(), MODEL_SAVE_PATH)
+            print(f"         ↑ Best checkpoint saved (val_loss={best_val_loss:.4f})")
+        else:
+            epochs_no_impro += 1
+            if epochs_no_impro >= PATIENCE:
+                print(f"\nEarly stopping after epoch {epoch + 1}.")
+                break
+
+    # ── Final report ─────────────────────────────────────────────────────────
+    print("\n" + "=" * 52)
+    print(" FINAL VALIDATION METRICS (best checkpoint)")
+    print("=" * 52)
+    model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=device, weights_only=True))
+    model.eval()
+    final_preds, final_labels = [], []
+    with torch.no_grad():
+        for v_inp, v_lab in val_loader:
+            preds = model(v_inp.to(device)).argmax(1).cpu().tolist()
+            final_preds.extend(preds)
+            final_labels.extend(v_lab.tolist())
+
+    print(classification_report(final_labels, final_preds, target_names=['Safe', 'Unsafe']))
+    cm = confusion_matrix(final_labels, final_preds)
+    print("Confusion matrix:")
+    print(f"  {'':12} {'Pred Safe':>10} {'Pred Unsafe':>12}")
+    print(f"  {'Actual Safe':12} {cm[0][0]:>10} {cm[0][1]:>12}")
+    print(f"  {'Actual Unsafe':12} {cm[1][0]:>10} {cm[1][1]:>12}")
+
+    # ── Threshold calibration ─────────────────────────────────────────────────
+    calibrate_and_save_thresholds(model, val_loader, device, target_fpr=0.05)
+
+    print(f"\nModel → '{MODEL_SAVE_PATH}'  |  Thresholds → '{THRESHOLDS_PATH}'")
+
+
+if __name__ == "__main__":
+    train()
