@@ -168,10 +168,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# SafeCommute data artifacts
+# SafeCommute data & model artifacts
 raw_data/
 prepared_data/
-prepared_data_metro/
 *.pth
 *.onnx
 *.pt
@@ -179,11 +178,14 @@ prepared_data_metro/
 !safecommute/**/*.json
 roc_curve.png
 calibration_plots.png
-v_3/benchmark/results/
+experiments_log.txt
 SESSION_REPORT.md
 CLAUDE.md
 ript.md
 .claude/
+
+# Analysis outputs (generated, not tracked — run comprehensive_analysis.py)
+analysis/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

@@ -110,8 +110,8 @@ def train():
 
     # Initialize model — load pretrained weights from best model
     model = SafeCommuteDACNN().to(device)
-    if os.path.exists('best_model_exp1.pth'):
-        base_sd = torch.load('best_model_exp1.pth', map_location=device, weights_only=True)
+    if os.path.exists(MODEL_SAVE_PATH):
+        base_sd = torch.load(MODEL_SAVE_PATH, map_location=device, weights_only=True)
         model.load_from_base(base_sd)
 
     # Class weights
@@ -129,7 +129,7 @@ def train():
 
     best_val_loss = float('inf')
     epochs_no_impro = 0
-    save_path = 'exp5_domain_adversarial.pth'
+    save_path = 'safecommute_domain_adversarial.pth'
 
     for epoch in range(EPOCHS):
         model.train()
