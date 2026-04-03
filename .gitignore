@@ -181,11 +181,16 @@ calibration_plots.png
 experiments_log.txt
 SESSION_REPORT.md
 CLAUDE.md
-ript.md
 .claude/
 
 # Analysis outputs (generated, not tracked — run comprehensive_analysis.py)
 analysis/
+
+# Research artifacts (generated — scripts tracked, outputs not)
+research/results/
+research/dataset_audit_details.json
+research/benchmarks/plots/
+v_3/benchmark/results/*.png
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
