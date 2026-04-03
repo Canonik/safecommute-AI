@@ -10,7 +10,7 @@ import numpy as np
 import librosa
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import SAMPLE_RATE, TARGET_LENGTH, DATA_DIR, N_MELS, N_FFT, HOP_LENGTH
 from safecommute.features import extract_features, pad_or_truncate
 from safecommute.utils import seed_everything

@@ -11,7 +11,7 @@ import soundata
 import torch
 from scipy.signal import fftconvolve
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import (
     SAMPLE_RATE, DURATION_SEC, TARGET_LENGTH, N_MELS, N_FFT, HOP_LENGTH,
     RAW_DIR, DATA_DIR as OUTPUT_DIR, STATS_PATH, SEED,

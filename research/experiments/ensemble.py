@@ -22,7 +22,7 @@ from research.experiments.eval_utils import (
 
 def train_variant(gamma, save_path):
     """Train a variant with different gamma for diversity."""
-    from v_3.train_experimental import train
+    from safecommute.pipeline.train import train
     print(f"\n  Training variant with gamma={gamma}...")
     train(use_focal=True, use_cosine=True, use_strong_aug=True,
           gamma=gamma, save_path=save_path)

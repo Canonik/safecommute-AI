@@ -32,10 +32,10 @@ from safecommute.constants import (
     SAMPLE_RATE, TARGET_LENGTH,
 )
 
-from v_3.benchmark.metrics import compute_metrics
-from v_3.benchmark.profiler import profile_model, count_parameters, measure_model_size_mb, measure_latency_ms
-from v_3.benchmark.models.safecommute_wrapper import SafeCommuteWrapper
-from v_3.benchmark.models.energy_baseline import EnergyBaseline
+from safecommute.benchmark.metrics import compute_metrics
+from safecommute.benchmark.profiler import profile_model, count_parameters, measure_model_size_mb, measure_latency_ms
+from safecommute.benchmark.models.safecommute_wrapper import SafeCommuteWrapper
+from safecommute.benchmark.models.energy_baseline import EnergyBaseline
 
 
 def load_test_data(test_dir, mean, std):
@@ -439,7 +439,7 @@ def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'
         print(" 4/7  PANNs CNN14 (SOTA)")
         print("=" * 60)
         try:
-            from v_3.benchmark.models.panns_wrapper import PANNsWrapper
+            from safecommute.benchmark.models.panns_wrapper import PANNsWrapper
             panns = PANNsWrapper()
             panns.load(device='cpu')
             y_prob_panns = benchmark_waveform_model(panns, waveforms, wf_labels)
@@ -466,7 +466,7 @@ def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'
             print(" 5/7  AST (Audio Spectrogram Transformer)")
             print("=" * 60)
             try:
-                from v_3.benchmark.models.ast_wrapper import ASTWrapper
+                from safecommute.benchmark.models.ast_wrapper import ASTWrapper
                 ast_model = ASTWrapper()
                 ast_model.load(device='cpu')
                 y_prob_ast = benchmark_waveform_model(ast_model, waveforms, wf_labels)
@@ -500,7 +500,7 @@ def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'
             print(" 6/7  Wav2Vec2 (Self-Supervised)")
             print("=" * 60)
             try:
-                from v_3.benchmark.models.wav2vec2_wrapper import Wav2Vec2Wrapper
+                from safecommute.benchmark.models.wav2vec2_wrapper import Wav2Vec2Wrapper
                 w2v = Wav2Vec2Wrapper()
                 w2v.load(device='cpu')
                 y_prob_w2v = benchmark_waveform_model(w2v, waveforms, wf_labels)
@@ -533,7 +533,7 @@ def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'
             print(" 7/7  Whisper-tiny (OpenAI)")
             print("=" * 60)
             try:
-                from v_3.benchmark.models.whisper_wrapper import WhisperWrapper
+                from safecommute.benchmark.models.whisper_wrapper import WhisperWrapper
                 whisper = WhisperWrapper(size="tiny")
                 whisper.load(device='cpu')
                 y_prob_whisper = benchmark_waveform_model(whisper, waveforms, wf_labels)
@@ -559,7 +559,7 @@ def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'
                 traceback.print_exc()
     else:
         print("\n  Warning: No raw audio found. Skipping waveform-based SOTA models.")
-        print("  Run v_3/download_datasets.py first, then v_3/data_pipeline_3.0.py")
+        print("  Run safecommute/pipeline/download_datasets.py first, then safecommute/pipeline/data_pipeline.py")
 
     # ══════════════════════════════════════════════════════════════════
     # Generate report
@@ -641,6 +641,6 @@ if __name__ == "__main__":
     parser.add_argument('--test-dir', default=os.path.join(DATA_DIR, 'test'))
     parser.add_argument('--skip-heavy', action='store_true',
                         help='Skip heavy models (AST, Wav2Vec2, Whisper)')
-    parser.add_argument('--output-dir', default='v_3/benchmark/results')
+    parser.add_argument('--output-dir', default='safecommute/benchmark/results')
     args = parser.parse_args()
     run_benchmark(args.test_dir, skip_heavy=args.skip_heavy, output_dir=args.output_dir)

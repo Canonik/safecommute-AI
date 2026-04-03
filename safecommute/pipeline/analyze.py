@@ -21,7 +21,7 @@ from sklearn.metrics import (
     roc_curve, precision_recall_curve, confusion_matrix, classification_report
 )
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.dataset import TensorAudioDataset
 from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, N_MELS, TIME_FRAMES

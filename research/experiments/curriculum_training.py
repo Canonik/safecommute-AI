@@ -22,7 +22,7 @@ from safecommute.utils import seed_everything
 from research.experiments.eval_utils import (
     load_stats, get_train_val_loaders, full_evaluation
 )
-from v_3.train_experimental import FocalLoss, spec_augment_strong, mixup_batch, compute_class_weights
+from safecommute.pipeline.train import FocalLoss, spec_augment_strong, mixup_batch, compute_class_weights
 
 
 BATCH_SIZE = 32

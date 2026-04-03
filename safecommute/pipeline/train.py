@@ -14,7 +14,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, roc_auc_score
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.dataset import TensorAudioDataset
 from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, THRESHOLDS_PATH

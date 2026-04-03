@@ -41,29 +41,28 @@ The model excels on real-world audio but struggles with acted speech — acted a
 Input: (B, 1, 64, 188) log-Mel spectrogram
        3-second audio @ 16kHz, n_mels=64, hop_length=256
 
-ConvBlock1: 2x Conv2d(1→64, 3x3) + BN + ReLU + SE(64) + AvgPool(2x2)
+ConvBlock1: 2x Conv2d(1->64, 3x3) + BN + ReLU + SE(64) + AvgPool(2x2)
             Output: (B, 64, 32, 94)
 
-ConvBlock2: 2x Conv2d(64→128, 3x3) + BN + ReLU + SE(128) + AvgPool(2x2)
+ConvBlock2: 2x Conv2d(64->128, 3x3) + BN + ReLU + SE(128) + AvgPool(2x2)
             Output: (B, 128, 16, 47)
 
-ConvBlock3: 2x Conv2d(128→256, 3x3) + BN + ReLU + SE(256) + AvgPool(2x2)
+ConvBlock3: 2x Conv2d(128->256, 3x3) + BN + ReLU + SE(256) + AvgPool(2x2)
             Output: (B, 256, 8, 23)
 
-Reshape:    (B, 256, 8, 23) → (B, 23, 2048)
-FreqReduce: Linear(2048→256) + ReLU
-            Output: (B, 23, 256)
+Reshape:    (B, 256, 8, 23) -> (B, 23, 2048)
+FreqReduce: Linear(2048->256) + ReLU -> (B, 23, 256)
 
-GRU:        GRU(256→128, 1 layer, batch_first)
+GRU:        GRU(256->128, 1 layer, batch_first)
             Output: (B, 23, 128), hidden: (1, B, 128)
 
 Multi-Scale Pooling:
-  last_hidden = GRU hidden state → (B, 128)
-  mean_pool   = mean over time   → (B, 128)
-  max_pool    = max over time    → (B, 128)
-  concat → (B, 384)
+  last_hidden = GRU hidden state -> (B, 128)
+  mean_pool   = mean over time   -> (B, 128)
+  max_pool    = max over time    -> (B, 128)
+  concat -> (B, 384)
 
-Classifier: Dropout(0.3) → Linear(384→2)
+Classifier: Dropout(0.3) -> Linear(384->2)
 ```
 
 ### Why This Architecture
@@ -88,25 +87,21 @@ Classifier: Dropout(0.3) → Linear(384→2)
 
 | Source | Train | Val | Test | Type | Safe/Unsafe Mapping |
 |--------|-------|-----|------|------|---------------------|
-| CREMA-D | 4,301 | 884 | 986 | Acted speech (91 actors) | ANG,FEA → unsafe; HAP,NEU,SAD → safe |
-| YouTube | 3,300 | 721 | 691 | Real metro + screams | Metro ambient → safe; screams → unsafe |
-| TESS | 1,097 | 256 | 247 | Acted speech (2 speakers) | angry,fear → unsafe; neutral,happy → safe |
-| HNS (hard negatives) | 2,385 | 526 | 518 | Environmental sounds | All safe (loud but non-threatening) |
+| CREMA-D | 4,301 | 884 | 986 | Acted speech (91 actors) | ANG,FEA -> unsafe; HAP,NEU,SAD -> safe |
+| YouTube | 3,300 | 721 | 691 | Real metro + screams | Metro ambient -> safe; screams -> unsafe |
+| TESS | 1,097 | 256 | 247 | Acted speech (2 speakers) | angry,fear -> unsafe; neutral,happy -> safe |
+| HNS | 2,385 | 526 | 518 | Environmental sounds | All safe (loud but non-threatening) |
 | UrbanSound8K | 2,125 | 445 | 430 | Urban backgrounds | All safe |
-| Violence | 1,407 | 305 | 300 | Violence detection dataset | label 0 → safe; label 1 → unsafe |
-| RAVDESS | 594 | 126 | 144 | Acted speech (24 actors) | emotion 05,06 → unsafe; 01,02,03 → safe |
+| Violence | 1,407 | 305 | 300 | Violence detection dataset | label 0 -> safe; label 1 -> unsafe |
+| RAVDESS | 594 | 126 | 144 | Acted speech (24 actors) | emotion 05,06 -> unsafe; 01,02,03 -> safe |
 | ESC-50 | 566 | 120 | 114 | Environmental sounds | All safe |
-| SAVEE | 262 | 56 | 42 | Acted speech (4 speakers) | angry,fear → unsafe; rest → safe |
+| SAVEE | 262 | 56 | 42 | Acted speech (4 speakers) | angry,fear -> unsafe; rest -> safe |
 
 **Class balance**: 74% safe / 26% unsafe, handled by focal loss with inverse-frequency class weights.
 
-### Data Quality
+### Feature Format
 
-Audited with automated quality checks — 35/22,948 samples flagged (flat/uniform spectrograms from YouTube), 0 mislabeled candidates detected. See `research/dataset_audit_report.md`.
-
-### Feature Extraction
-
-All audio: 16kHz mono, 3-second clips (pad or random crop). Features stored as pre-computed `.pt` tensors:
+All audio: 16kHz mono, 3-second clips (pad or random crop). Stored as pre-computed `.pt` tensors:
 - Log-mel spectrogram: `librosa.feature.melspectrogram()` with ref=1.0 to preserve loudness
 - Shape: `(1, 64, 188)` — 1 channel, 64 mel bins, 188 time frames
 - Normalized by global mean/std (stored in `feature_stats.json`)
@@ -116,38 +111,42 @@ All audio: 16kHz mono, 3-second clips (pad or random crop). Features stored as p
 ## Repository Structure
 
 ```
-safecommute/                    # Core Python package (single source of truth)
-  model.py                      # SafeCommuteCNN architecture
-  constants.py                  # Shared constants (sample rate, mel bins, etc.)
-  features.py                   # Mel spectrogram extraction
-  dataset.py                    # TensorAudioDataset (loads pre-computed .pt tensors)
-  utils.py                      # Seed everything for reproducibility
-  export.py                     # INT8, ONNX, TorchScript export
-  distill.py                    # PANNs knowledge distillation
-  domain_adversarial.py         # Domain-adversarial training
+safecommute/                         # Everything lives here
+  model.py                           # SafeCommuteCNN architecture
+  constants.py                       # Shared constants (sample rate, mel bins, etc.)
+  features.py                        # Mel spectrogram extraction
+  dataset.py                         # TensorAudioDataset (loads .pt tensors)
+  utils.py                           # Seed everything for reproducibility
+  export.py                          # INT8, ONNX, TorchScript export
+  distill.py                         # PANNs knowledge distillation
+  domain_adversarial.py              # Domain-adversarial training
 
-v_3/                            # Pipeline scripts (all import from safecommute/)
-  download_datasets.py          # Download all 9 datasets
-  data_pipeline_3.0.py          # Prepare mel spectrogram features from raw audio
-  prepare_youtube_data.py       # YouTube audio extraction (yt-dlp)
-  prepare_violence_data.py      # Violence dataset preparation
-  validate_youtube_data.py      # Automated data quality validation
-  train_experimental.py         # Training (focal loss, augmentation, mixup, cosine LR)
-  comprehensive_analysis.py     # Full analysis: ROC, calibration, per-source, confusion
-  mvp_inference_3.0.py          # Live microphone inference demo
-  benchmark/                    # SOTA comparison benchmark suite
+  pipeline/                          # Data preparation, training, analysis
+    download_datasets.py             # Download all 9 datasets
+    data_pipeline.py                 # Prepare mel spectrograms from raw audio
+    prepare_youtube_data.py          # YouTube audio extraction (yt-dlp)
+    prepare_violence_data.py         # Violence dataset preparation
+    validate_youtube_data.py         # Automated data quality validation
+    train.py                         # Training (focal loss, augmentation, mixup)
+    analyze.py                       # Full analysis: ROC, calibration, per-source
+    inference.py                     # Live microphone inference
 
-research/                       # Research experiments & analysis
-  README.md                     # Research overview and results table
-  NEXT_STEPS.md                 # Publication roadmap and action items
-  literature_review.md          # 20-paper survey across 4 categories
-  experiment_log.md             # All experiment results with per-source breakdowns
-  robustness_report.md          # Overfitting, noise, and calibration analysis
-  dataset_audit_report.md       # Data quality audit (35 flagged, 0 mislabeled)
-  experiments/                  # 15 experiment scripts (reproducible, self-contained)
-  benchmarks/                   # Comparison tables and plot generation
+  benchmark/                         # SOTA comparison benchmark suite
+    run_benchmark.py                 # Run all benchmarks
+    metrics.py                       # Evaluation metrics
+    profiler.py                      # Latency/memory profiling
+    models/                          # Wrappers for PANNs, AST, Wav2Vec2, etc.
 
-demo.py                         # Quick 15-second live demo
+research/                            # Research experiments (sandboxed)
+  README.md                          # Results overview
+  NEXT_STEPS.md                      # Publication roadmap
+  literature_review.md               # 20-paper survey
+  experiment_log.md                  # All experiment results
+  robustness_report.md               # Overfitting/noise/calibration analysis
+  dataset_audit_report.md            # Data quality audit
+  experiments/                       # 15 experiment scripts
+
+demo.py                              # Quick 15-second live demo
 ```
 
 ---
@@ -161,17 +160,17 @@ python -m venv venv && source venv/bin/activate.fish
 pip install -r requirements.txt
 
 # Download and prepare data
-PYTHONPATH=. python v_3/download_datasets.py
-PYTHONPATH=. python v_3/data_pipeline_3.0.py
-PYTHONPATH=. python v_3/prepare_youtube_data.py
-PYTHONPATH=. python v_3/prepare_violence_data.py
-PYTHONPATH=. python v_3/validate_youtube_data.py
+PYTHONPATH=. python safecommute/pipeline/download_datasets.py
+PYTHONPATH=. python safecommute/pipeline/data_pipeline.py
+PYTHONPATH=. python safecommute/pipeline/prepare_youtube_data.py
+PYTHONPATH=. python safecommute/pipeline/prepare_violence_data.py
+PYTHONPATH=. python safecommute/pipeline/validate_youtube_data.py
 
 # Train
-PYTHONPATH=. python v_3/train_experimental.py --focal --cosine --strong-aug --gamma 3.0
+PYTHONPATH=. python safecommute/pipeline/train.py --focal --cosine --strong-aug --gamma 3.0
 
 # Analyze
-PYTHONPATH=. python v_3/comprehensive_analysis.py
+PYTHONPATH=. python safecommute/pipeline/analyze.py
 
 # Live demo
 PYTHONPATH=. python demo.py
@@ -179,9 +178,9 @@ PYTHONPATH=. python demo.py
 
 ---
 
-## Research Phase Summary
+## Research Summary
 
-12 experiments completed, comparing our architecture against alternative techniques and SOTA baselines. Full details in `research/README.md`.
+12 experiments completed comparing our architecture against alternative techniques and SOTA baselines. Full details in `research/README.md`.
 
 | Rank | Experiment | AUC | Accuracy | Params | Key Finding |
 |------|-----------|-----|----------|--------|-------------|
@@ -191,15 +190,15 @@ PYTHONPATH=. python demo.py
 | 4 | SOTA: Audio ResNet | 0.929 | 76.1% | 816K | Higher acc, lower AUC |
 | 5 | SOTA: Simple CNN | 0.881 | 64.5% | 93K | Proves architecture matters |
 
-**Our CNN6+SE+GRU outperforms ResNet, Transformer (Mini AST), BiLSTM, and Simple CNN** on this task, validating each architectural choice (SE attention, GRU temporal modeling, multi-scale pooling).
+**Our CNN6+SE+GRU outperforms ResNet, Transformer, BiLSTM, and Simple CNN** on this task.
 
 ### Next Steps Toward Publication
 
-1. **Cross-validation**: 5-fold with source-aware stratification for stronger evidence
-2. **Leave-one-source-out**: train on 8 sources, test on held-out 1 (the ultimate generalization test)
-3. **Ablation study**: remove SE, remove GRU, reduce channels — prove each component contributes
-4. **Statistical significance**: run top experiments 3-5x with different seeds, report mean +/- std
-5. **Domain adaptation**: MMD loss or DANN to bridge the acted-to-real speech gap
+1. **Cross-validation**: 5-fold with source-aware stratification
+2. **Leave-one-source-out**: train on 8, test on held-out 1
+3. **Ablation study**: remove SE / GRU / multi-scale pooling individually
+4. **Statistical significance**: 3-5x multi-seed runs
+5. **Domain adaptation**: MMD loss or DANN for acted-to-real gap
 6. **Real-world validation**: test on actual public transport audio
 
 See `research/NEXT_STEPS.md` for the full roadmap.

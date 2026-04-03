@@ -190,7 +190,7 @@ analysis/
 research/results/
 research/dataset_audit_details.json
 research/benchmarks/plots/
-v_3/benchmark/results/*.png
+safecommute/benchmark/results/*.png
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

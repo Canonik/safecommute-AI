@@ -23,7 +23,7 @@ from research.experiments.eval_utils import (
     per_source_breakdown, measure_latency,
     count_parameters, model_size_mb, log_experiment, full_evaluation
 )
-from v_3.train_experimental import FocalLoss, compute_class_weights
+from safecommute.pipeline.train import FocalLoss, compute_class_weights
 
 BATCH_SIZE = 32
 EPOCHS = 25

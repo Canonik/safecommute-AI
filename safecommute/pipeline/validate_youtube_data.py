@@ -22,7 +22,7 @@ import shutil
 import numpy as np
 import librosa
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import SAMPLE_RATE
 
 

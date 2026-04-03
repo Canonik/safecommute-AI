@@ -19,7 +19,7 @@ import requests
 import soundfile as sf
 import librosa
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import RAW_DIR, SAMPLE_RATE
 
 os.makedirs(os.path.join(RAW_DIR, 'ravdess'), exist_ok=True)

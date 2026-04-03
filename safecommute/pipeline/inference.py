@@ -9,7 +9,7 @@ import pyaudio
 import torch
 
 # Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.features import preprocess
 from safecommute.constants import (

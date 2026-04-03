@@ -150,7 +150,7 @@ def main():
     model = MelToW2V2Proxy().to(device)
     print(f"  Proxy model params: {count_parameters(model):,}")
 
-    from v_3.train_experimental import FocalLoss, compute_class_weights
+    from safecommute.pipeline.train import FocalLoss, compute_class_weights
     class_wts = compute_class_weights(train_dataset).to(device)
     criterion = FocalLoss(alpha=class_wts, gamma=3.0, label_smoothing=0.1)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
