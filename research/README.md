@@ -126,7 +126,7 @@ These experiments validate that the model genuinely generalizes rather than memo
 |-----------|--------|--------|
 | 5-fold cross-validation (source-aware) | **Done** | `experiments/cross_validation.py` |
 | Threshold optimization | **Done** | `experiments/threshold_optimization.py` |
-| Ablation study (SE, GRU, channels) | Running | `experiments/ablation_study.py` |
+| Ablation study (SE, GRU, channels) | **Done** | `experiments/ablation_study.py` |
 | Leave-one-source-out (LOSO) | Queued | `experiments/loso_evaluation.py` |
 | Regularization sweep (dropout/wd/ls) | Queued | `experiments/regularization_sweep.py` |
 
@@ -146,6 +146,20 @@ Source-aware stratified splits, no data leakage. Proves the model genuinely gene
 | **Mean +/- Std** | **0.944 +/- 0.006** | **0.760 +/- 0.010** | **0.775 +/- 0.009** |
 
 Low variance across folds confirms robust generalization.
+
+### Ablation Study (completed)
+
+Proves each architectural component contributes to the final AUC.
+
+| Variant | AUC | Delta | Params |
+|---------|-----|-------|--------|
+| Full model | 0.950 | — | 1.83M |
+| No SE attention | 0.948 | -0.003 | 1.82M |
+| No multi-scale pool | 0.945 | -0.006 | 1.83M |
+| Half channels | 0.946 | -0.004 | 458K |
+| **No GRU (global pool)** | **0.926** | **-0.024** | **1.16M** |
+
+**The GRU is the most critical component** — removing it causes the largest AUC drop (0.024). It captures temporal escalation patterns that frame-level CNNs miss. SE attention adds a small but consistent benefit (+0.003). Half channels (458K params) is surprisingly competitive at only -0.004 AUC.
 
 ### Threshold Optimization (completed)
 
