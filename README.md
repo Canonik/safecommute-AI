@@ -16,6 +16,8 @@ Privacy-first edge audio classifier for detecting escalation (aggressive shoutin
 
 **No overfitting** (train-test AUC gap = 0.028). Noise-robust (AUC >0.94 at Gaussian noise sigma=0.2). 7 MB float32, ~7 ms CPU inference.
 
+With optimized threshold (Youden's J = 0.622): **Accuracy = 86.0%, F1 = 0.865, Sensitivity = 89.2%**.
+
 ### Per-Source Accuracy
 
 | Source | Accuracy | Type |
