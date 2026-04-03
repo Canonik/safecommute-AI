@@ -194,14 +194,21 @@ PYTHONPATH=. python demo.py
 
 **Our CNN6+SE+GRU outperforms ResNet, Transformer, BiLSTM, and Simple CNN** on this task.
 
-### Next Steps Toward Publication
+### Validation (in progress)
 
-1. **Cross-validation**: 5-fold with source-aware stratification
-2. **Leave-one-source-out**: train on 8, test on held-out 1
-3. **Ablation study**: remove SE / GRU / multi-scale pooling individually
-4. **Statistical significance**: 3-5x multi-seed runs
-5. **Domain adaptation**: MMD loss or DANN for acted-to-real gap
-6. **Real-world validation**: test on actual public transport audio
+| Test | Result | Status |
+|------|--------|--------|
+| 5-fold CV (source-aware) | AUC = 0.944 +/- 0.006 | **Done** |
+| Threshold optimization | Acc 74.5% -> 86.0% at t=0.622 | **Done** |
+| Ablation study | — | Running |
+| Leave-one-source-out | — | Queued |
+
+### Next Steps
+
+1. **Ablation study**: prove each component (SE, GRU, multi-scale pooling) contributes
+2. **LOSO evaluation**: train on 8 sources, test on held-out 1
+3. **Domain adaptation**: MMD loss or DANN for acted-to-real gap
+4. **Real-world validation**: test on actual public transport audio
 
 See `research/NEXT_STEPS.md` for the full roadmap.
 

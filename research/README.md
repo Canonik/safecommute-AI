@@ -124,13 +124,28 @@ These experiments validate that the model genuinely generalizes rather than memo
 
 | Experiment | Status | Script |
 |-----------|--------|--------|
-| 5-fold cross-validation (source-aware) | Running | `experiments/cross_validation.py` |
+| 5-fold cross-validation (source-aware) | **Done** | `experiments/cross_validation.py` |
+| Threshold optimization | **Done** | `experiments/threshold_optimization.py` |
+| Ablation study (SE, GRU, channels) | Running | `experiments/ablation_study.py` |
 | Leave-one-source-out (LOSO) | Queued | `experiments/loso_evaluation.py` |
 | Regularization sweep (dropout/wd/ls) | Queued | `experiments/regularization_sweep.py` |
-| Ablation study (SE, GRU, channels) | Queued | `experiments/ablation_study.py` |
-| Threshold optimization | **Done** | `experiments/threshold_optimization.py` |
 
 Results are appended to `experiment_log.md` as they complete.
+
+### 5-Fold Cross-Validation (completed)
+
+Source-aware stratified splits, no data leakage. Proves the model genuinely generalizes.
+
+| Fold | AUC | Accuracy | F1 |
+|------|-----|----------|-----|
+| 1 | 0.948 | 0.757 | 0.773 |
+| 2 | 0.950 | 0.774 | 0.788 |
+| 3 | 0.948 | 0.762 | 0.777 |
+| 4 | 0.934 | 0.741 | 0.756 |
+| 5 | 0.939 | 0.768 | 0.783 |
+| **Mean +/- Std** | **0.944 +/- 0.006** | **0.760 +/- 0.010** | **0.775 +/- 0.009** |
+
+Low variance across folds confirms robust generalization.
 
 ### Threshold Optimization (completed)
 
