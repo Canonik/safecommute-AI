@@ -62,24 +62,46 @@ def get_unsafe_indices(at):
 def find_raw_audio(pt_filename, raw_dir):
     """
     Attempt to find the raw audio file corresponding to a .pt feature tensor.
-    Uses the naming convention from data_pipeline_3.0.py:
-      rav_{wavname}.pt, tess_{wavname}.pt, cremad_{wavname}.pt
+
+    Supports v2 naming conventions:
+      as_{category}_{videoid}_{start}_{end}_c{N}.pt → audioset/{threat|safe}/{category}/*.wav
+      yt_metro_{id}_c{N}.pt                         → youtube_metro/{id}.wav
+      yt_scream_{id}_c{N}.pt                        → youtube_screams/{id}.wav
+      viol_{name}_c{N}.pt                           → violence/{name}.wav
+      esc_{name}.pt                                 → esc50/audio/{name}.wav
     """
     base = pt_filename.replace('.pt', '')
 
-    if base.startswith('rav_'):
-        wav_name = base[4:]
-        for path in glob.glob(os.path.join(raw_dir, 'ravdess', '**', wav_name), recursive=True):
+    if base.startswith('as_'):
+        # AudioSet: search both threat and safe directories
+        for group in ['threat', 'safe']:
+            for path in glob.glob(os.path.join(raw_dir, 'audioset', group, '**', '*.wav'), recursive=True):
+                wav_base = os.path.basename(path).replace('.wav', '')
+                if wav_base in base:
+                    return path
+
+    elif base.startswith('yt_metro_'):
+        wav_name = base.replace('yt_metro_', '').rsplit('_c', 1)[0] + '.wav'
+        path = os.path.join(raw_dir, 'youtube_metro', wav_name)
+        if os.path.exists(path):
             return path
 
-    elif base.startswith('tess_'):
-        wav_name = base[5:]
-        for path in glob.glob(os.path.join(raw_dir, 'tess', '**', wav_name), recursive=True):
+    elif base.startswith('yt_scream_'):
+        wav_name = base.replace('yt_scream_', '').rsplit('_c', 1)[0] + '.wav'
+        path = os.path.join(raw_dir, 'youtube_screams', wav_name)
+        if os.path.exists(path):
             return path
 
-    elif base.startswith('cremad_'):
-        wav_name = base[7:]
-        for path in glob.glob(os.path.join(raw_dir, 'cremad', '**', wav_name), recursive=True):
+    elif base.startswith('viol_'):
+        wav_name = base.rsplit('_c', 1)[0].replace('viol_', '') + '.wav'
+        path = os.path.join(raw_dir, 'violence', wav_name)
+        if os.path.exists(path):
+            return path
+
+    elif base.startswith('esc_'):
+        wav_name = base.replace('esc_', '').replace('hns_', '') + '.wav'
+        path = os.path.join(raw_dir, 'esc50', 'audio', wav_name)
+        if os.path.exists(path):
             return path
 
     return None

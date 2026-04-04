@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.dataset import TensorAudioDataset
 from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, THRESHOLDS_PATH
-from safecommute.utils import seed_everything
+from safecommute.utils import seed_everything, worker_init_fn
 
 BATCH_SIZE = 32
 EPOCHS = 25
@@ -100,7 +100,8 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
           f"StrongAug={use_strong_aug}, Seed={seed}")
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                              shuffle=True, num_workers=2, pin_memory=True)
+                              shuffle=True, num_workers=2, pin_memory=True,
+                              worker_init_fn=worker_init_fn)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
                             shuffle=False, num_workers=2, pin_memory=True)
 
@@ -132,17 +133,23 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
 
-            # Strong augmentation: batch-level GPU ops (fast, no CPU transfer)
+            # Strong augmentation: per-sample GPU ops (no CPU transfer)
             if use_strong_aug:
-                if random.random() < 0.3:
-                    inputs = inputs + torch.randn_like(inputs) * 0.1
-                if random.random() < 0.3:
-                    shift = random.randint(-20, 20)
-                    inputs = torch.roll(inputs, shifts=shift, dims=-1)
-                if random.random() < 0.2:
-                    f_start = random.randint(0, 50)
-                    f_width = random.randint(3, 10)
-                    inputs[:, :, f_start:f_start + f_width, :] = 0
+                B = inputs.size(0)
+                # Gaussian noise: per-sample mask (30% of samples)
+                noise_mask = torch.rand(B, 1, 1, 1, device=inputs.device) < 0.3
+                inputs = inputs + noise_mask * torch.randn_like(inputs) * 0.1
+                # Circular time shift: per-sample random shift (30% of samples)
+                for i in range(B):
+                    if random.random() < 0.3:
+                        shift = random.randint(-20, 20)
+                        inputs[i] = torch.roll(inputs[i], shifts=shift, dims=-1)
+                # Frequency band dropout: per-sample (20% of samples)
+                for i in range(B):
+                    if random.random() < 0.2:
+                        f_start = random.randint(0, 50)
+                        f_width = random.randint(3, 10)
+                        inputs[i, :, f_start:f_start + f_width, :] = 0
 
             if np.random.random() < MIXUP_PROB:
                 inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels)

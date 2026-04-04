@@ -11,7 +11,7 @@ Sources:
   - FSD50K threat + safe (fallback): split by sha256 hash of filename
 
 Critical invariants:
-  - extract_features() is ALWAYS called with augment=False
+  - extract_features() produces clean spectrograms (no augment param)
   - No mix_audio, no reverb, no SpecAugment during data preparation
   - All augmentation happens at training time (see train.py / dataset.py)
   - Splitting is deterministic and source-aware (no random per-sample splits)
@@ -20,7 +20,6 @@ Critical invariants:
 import os
 import sys
 import json
-import hashlib
 
 import numpy as np
 import librosa
@@ -32,8 +31,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import (
     SAMPLE_RATE, RAW_DIR, DATA_DIR as OUTPUT_DIR, STATS_PATH, SEED,
 )
-from safecommute.features import extract_features, pad_or_truncate
-from safecommute.utils import seed_everything
+from safecommute.features import extract_features, pad_or_truncate, chunk_audio
+from safecommute.utils import seed_everything, sha256_split
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -63,17 +62,6 @@ for split in ['train', 'val', 'test']:
 # ─────────────────────────────────────────────────────────────────────────────
 # SPLITTING HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
-def sha256_split(filename):
-    """Deterministic split based on sha256 hash. 70/15/15 train/val/test."""
-    h = int(hashlib.sha256(filename.encode()).hexdigest(), 16) % 100
-    if h < 70:
-        return 'train'
-    elif h < 85:
-        return 'val'
-    else:
-        return 'test'
-
-
 def urbansound_fold_to_split(fold):
     """UrbanSound8K: folds 1-7 → train, 8 → val, 9-10 → test."""
     if fold <= 7:
@@ -99,7 +87,7 @@ def esc50_fold_to_split(fold):
 # ─────────────────────────────────────────────────────────────────────────────
 def process_and_save(y, split, class_dir, filename_prefix):
     """Extract clean features and save as .pt tensor."""
-    features = extract_features(y, augment=False)
+    features = extract_features(y)
     out_path = os.path.join(OUTPUT_DIR, split, class_dir, f"{filename_prefix}.pt")
     torch.save(features, out_path)
     return split, class_dir
@@ -222,12 +210,17 @@ def process_audioset_dir(base_dir, source_name):
                     y, sr = librosa.load(wav_path, sr=SAMPLE_RATE, mono=True)
                     if len(y) < SAMPLE_RATE // 2:  # skip < 0.5 seconds
                         continue
-                    y = pad_or_truncate(y)
 
+                    # Split by source file — all chunks go to the same split
                     split = sha256_split(fname)
-                    prefix = f"{source_name}_{category}_{fname.replace('.wav', '')}"
-                    process_and_save(y, split, class_dir, prefix)
-                    counter[split] += 1
+                    base = fname.replace('.wav', '')
+
+                    # Chunk long clips (AudioSet = 10s) into 3s windows
+                    chunks = chunk_audio(y)
+                    for i, chunk in enumerate(chunks):
+                        prefix = f"{source_name}_{category}_{base}_c{i:03d}"
+                        process_and_save(chunk, split, class_dir, prefix)
+                        counter[split] += 1
                 except Exception:
                     continue
 

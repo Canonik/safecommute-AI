@@ -50,7 +50,17 @@ def load_test_data(test_dir, mean, std):
 
 
 def find_raw_audio_for_test(test_dir, raw_dir):
-    """Build mapping from test .pt files to raw audio waveforms."""
+    """Build mapping from test .pt files to raw audio waveforms.
+
+    Supports v2 naming conventions:
+      as_{category}_{videoid}_{start}_{end}_c{N}.pt  → audioset/{threat|safe}/{category}/{videoid}...wav
+      fsd_{category}_{id}.pt                          → fsd50k/{threat|safe}/{category}/fsd_{id}.wav
+      yt_metro_{id}_c{N}.pt                           → youtube_metro/{id}.wav
+      yt_scream_{id}_c{N}.pt                          → youtube_screams/{id}.wav
+      viol_{name}_c{N}.pt                             → violence/{name}.wav
+      bg_{id}.pt / hns_{id}.pt                        → UrbanSound8K (via soundata, skip)
+      esc_{name}.pt                                   → esc50/audio/{name}.wav
+    """
     waveforms = []
     wf_labels = []
 
@@ -64,26 +74,33 @@ def find_raw_audio_for_test(test_dir, raw_dir):
             base = fname.replace('.pt', '')
             raw_path = None
 
-            if base.startswith('rav_'):
-                wav_name = base[4:]
-                matches = glob.glob(os.path.join(raw_dir, 'ravdess', '**', wav_name), recursive=True)
-                if matches:
-                    raw_path = matches[0]
-            elif base.startswith('tess_'):
-                wav_name = base[5:]
-                matches = glob.glob(os.path.join(raw_dir, 'tess', '**', wav_name), recursive=True)
-                if matches:
-                    raw_path = matches[0]
-            elif base.startswith('cremad_'):
-                wav_name = base[7:]
-                matches = glob.glob(os.path.join(raw_dir, 'cremad', '**', wav_name), recursive=True)
-                if matches:
-                    raw_path = matches[0]
-            elif base.startswith('savee_'):
-                wav_name = base[6:]
-                matches = glob.glob(os.path.join(raw_dir, 'savee', '**', wav_name), recursive=True)
-                if matches:
-                    raw_path = matches[0]
+            if base.startswith('as_'):
+                # AudioSet: as_{category}_{videoid}_{start}_{end}_c{N}
+                # Search in audioset/threat/ and audioset/safe/
+                for group in ['threat', 'safe']:
+                    matches = glob.glob(os.path.join(raw_dir, 'audioset', group, '**', '*.wav'), recursive=True)
+                    for m in matches:
+                        wav_base = os.path.basename(m).replace('.wav', '')
+                        if wav_base in base:
+                            raw_path = m
+                            break
+                    if raw_path:
+                        break
+            elif base.startswith('yt_metro_'):
+                wav_name = base.replace('yt_metro_', '').rsplit('_c', 1)[0] + '.wav'
+                p = os.path.join(raw_dir, 'youtube_metro', wav_name)
+                if os.path.exists(p):
+                    raw_path = p
+            elif base.startswith('yt_scream_'):
+                wav_name = base.replace('yt_scream_', '').rsplit('_c', 1)[0] + '.wav'
+                p = os.path.join(raw_dir, 'youtube_screams', wav_name)
+                if os.path.exists(p):
+                    raw_path = p
+            elif base.startswith('viol_'):
+                wav_name = base.rsplit('_c', 1)[0].replace('viol_', '') + '.wav'
+                p = os.path.join(raw_dir, 'violence', wav_name)
+                if os.path.exists(p):
+                    raw_path = p
 
             if raw_path and os.path.exists(raw_path):
                 try:

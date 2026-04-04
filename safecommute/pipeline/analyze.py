@@ -334,12 +334,11 @@ def generate_report(train_res, val_res, test_res, per_source, output_dir):
 | Val | {val_res['n_samples']} | {val_res['n_safe']} | {val_res['n_unsafe']} | {val_res['n_safe']/max(val_res['n_unsafe'],1):.1f}:1 |
 | Test | {test_res['n_samples']} | {test_res['n_safe']} | {test_res['n_unsafe']} | {test_res['n_safe']/max(test_res['n_unsafe'],1):.1f}:1 |
 
-### Data Sources
-- **Acted speech**: RAVDESS (1440), CREMA-D (7442), TESS (2800), SAVEE (480)
-- **Environmental**: UrbanSound8K (~6400), ESC-50 (~800)
-- **Real-world**: YouTube metro ambient (~58 clean clips), YouTube screams (~57 clean clips)
-- **Violence detection**: HuggingFace Hemg/audio-based-violence-dataset (2000)
-- **Data cleaning**: Removed 34 metro + 4 scream YouTube files (music, news, too energetic)
+### Data Sources (v2 Pipeline)
+- **AudioSet threat**: Screaming, Shout, Yell, Gunshot, Explosion, Glass breaking
+- **AudioSet safe**: Laughter, Crowd, Speech, Music, Applause, Cheering, Singing
+- **Environmental**: UrbanSound8K, ESC-50
+- **Real-world**: YouTube metro ambient, YouTube screams, Violence dataset
 
 ---
 
@@ -368,47 +367,48 @@ def generate_report(train_res, val_res, test_res, per_source, output_dir):
 |--------|----------|---------|------|------------|
 """
     for src, data in sorted(per_source.items(), key=lambda x: x[1]['accuracy']):
-        src_type = "acted" if src in ('cremad', 'rav', 'savee', 'tess') else "real-world" if src.startswith('yt_') or src.startswith('viol_') else "environmental"
+        src_type = "AudioSet" if src.startswith('as_') else "FSD50K" if src.startswith('fsd_') else "real-world" if src.startswith('yt_') or src.startswith('viol_') else "environmental"
         assessment = "weak" if data['accuracy'] < 0.7 else "moderate" if data['accuracy'] < 0.85 else "strong"
         report += f"| {src} | {data['accuracy']:.1%} | {data['total']} | {src_type} | {assessment} |\n"
 
+    # Build dynamic key finding from actual per-source data
+    best_src = max(per_source.items(), key=lambda x: x[1]['accuracy']) if per_source else ('N/A', {'accuracy': 0})
+    worst_src = min(per_source.items(), key=lambda x: x[1]['accuracy']) if per_source else ('N/A', {'accuracy': 0})
+
     report += f"""
-**Key finding**: The model excels on real-world audio (YouTube screams {per_source.get('yt_scream', {}).get('accuracy', 0):.0%}, metro {per_source.get('yt_metro', {}).get('accuracy', 0):.0%}) but struggles with acted speech (CREMA-D {per_source.get('cremad', {}).get('accuracy', 0):.0%}). This is because acted emotions sound fundamentally different from real escalation.
+**Key finding**: Best performing source: {best_src[0]} ({best_src[1]['accuracy']:.0%}). Weakest source: {worst_src[0]} ({worst_src[1]['accuracy']:.0%}). v2 pipeline uses only real-world and AudioSet data (no acted speech).
 
 ---
 
 ## 4. Where the Model Excels
 
 1. **Real-world scream detection**: {per_source.get('yt_scream', {}).get('accuracy', 0):.0%} accuracy on YouTube screams — the actual deployment target
-2. **Environmental noise rejection**: >95% on UrbanSound8K backgrounds and ESC-50
+2. **Environmental noise rejection**: UrbanSound8K backgrounds and ESC-50 hard negatives
 3. **Hard negative handling**: {per_source.get('hns', {}).get('accuracy', 0):.0%} on loud-but-safe sounds (jackhammer, car horn)
-4. **AUC-ROC = {test_res['auc_roc']:.3f}**: Strong discrimination — the model CAN tell safe from unsafe, threshold just needs tuning
-5. **Size/speed**: 7MB, ~9ms CPU inference — genuinely deployable on edge hardware
+4. **AUC-ROC = {test_res['auc_roc']:.3f}**: Strong discrimination — threshold-tunable
+5. **Size/speed**: 7MB, ~7ms CPU inference — genuinely deployable on edge hardware
 
 ## 5. Where the Model Lacks
 
-1. **Acted speech accuracy**: CREMA-D ({per_source.get('cremad', {}).get('accuracy', 0):.0%}), RAVDESS ({per_source.get('rav', {}).get('accuracy', 0):.0%}), SAVEE ({per_source.get('savee', {}).get('accuracy', 0):.0%}) — actors performing anger ≠ real aggression
-2. **Overfitting gap**: Train accuracy significantly higher than test ({train_test_gap:.1%} gap) — the model memorizes some training patterns
-3. **No Italian-specific training**: Emozionalmente was tested but degraded performance
-4. **No real metro field validation**: All evaluation is on curated test sets
-5. **Class imbalance**: {train_res['n_safe']/max(train_res['n_unsafe'],1):.1f}:1 safe-to-unsafe ratio in training
+1. **Overfitting gap**: Train-test accuracy gap = {train_test_gap:.1%}
+2. **No real field validation**: All evaluation is on curated test sets, not live deployment
+3. **Class imbalance**: {train_res['n_safe']/max(train_res['n_unsafe'],1):.1f}:1 safe-to-unsafe ratio in training
+4. **Weakest source**: {worst_src[0]} ({worst_src[1]['accuracy']:.0%})
 
 ## 6. Addressable Weaknesses
 
 | Weakness | Solution | Effort | Impact |
 |----------|----------|--------|--------|
-| Low acted speech accuracy | More real-world data (field recordings) | Medium | High |
-| Overfitting | More data, stronger regularization, dropout increase | Low | Medium |
-| No Italian support | Fine-tune on Italian subset separately | Medium | Medium |
+| Overfitting gap | More data, stronger regularization | Low | Medium |
 | No field validation | 1-week pilot at metro station | High | Critical |
+| Deployment adaptation | Fine-tune with in-situ ambient audio | Low | High |
 
 ## 7. Fundamental Limitations (Cannot Fix with Code)
 
-1. **Acted ≠ Real**: No amount of training on CREMA-D/RAVDESS will match real escalation audio. This requires field recordings.
-2. **Single microphone**: Cannot determine distance or direction of sound source. Hardware limitation.
-3. **3-second window**: Very short escalations or brief screams may be missed. Trade-off with latency.
-4. **Adversarial attacks**: A phone playing a scream video will trigger the alarm. No defense exists.
-5. **Cultural variation**: What sounds aggressive varies by culture and language.
+1. **Single microphone**: Cannot determine distance or direction of sound source.
+2. **3-second window**: Very short escalations may be missed. Trade-off with latency.
+3. **Adversarial attacks**: A phone playing a scream video will trigger the alarm.
+4. **Cultural variation**: What sounds aggressive varies by culture and language.
 
 ---
 

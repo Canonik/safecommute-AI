@@ -9,39 +9,14 @@ All spectrograms are saved clean (no augmentation).
 """
 import os
 import sys
-import hashlib
 
-import numpy as np
 import librosa
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from safecommute.constants import SAMPLE_RATE, TARGET_LENGTH, DATA_DIR
-from safecommute.features import extract_features, pad_or_truncate
-from safecommute.utils import seed_everything
-
-
-def sha256_split(filename):
-    """Deterministic split based on sha256 hash. 70/15/15 train/val/test."""
-    h = int(hashlib.sha256(filename.encode()).hexdigest(), 16) % 100
-    if h < 70:
-        return 'train'
-    elif h < 85:
-        return 'val'
-    else:
-        return 'test'
-
-
-def chunk_audio(y, sr=SAMPLE_RATE, chunk_sec=3.0, hop_sec=1.5):
-    """Chunk long audio into overlapping windows."""
-    chunk_len = int(sr * chunk_sec)
-    hop_len = int(sr * hop_sec)
-    chunks = []
-    for start in range(0, len(y) - chunk_len + 1, hop_len):
-        chunks.append(y[start:start + chunk_len])
-    if not chunks and len(y) > sr:  # at least 1 second
-        chunks.append(pad_or_truncate(y))
-    return chunks
+from safecommute.constants import SAMPLE_RATE, DATA_DIR
+from safecommute.features import extract_features, pad_or_truncate, chunk_audio
+from safecommute.utils import seed_everything, sha256_split
 
 
 def process_directory(audio_dir, label, prefix, output_base):
@@ -64,7 +39,7 @@ def process_directory(audio_dir, label, prefix, output_base):
 
             chunks = chunk_audio(y)
             for i, chunk in enumerate(chunks):
-                features = extract_features(chunk, augment=False)
+                features = extract_features(chunk)
                 base = fname.replace('.wav', '')
                 out_path = os.path.join(out_dir, f"{prefix}_{base}_c{i:03d}.pt")
                 torch.save(features, out_path)
