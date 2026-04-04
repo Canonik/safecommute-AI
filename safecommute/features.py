@@ -20,10 +20,14 @@ def pad_or_truncate(y):
     return np.pad(y, (0, TARGET_LENGTH - len(y)), 'constant')
 
 
-def extract_features(y, augment=True):
+def extract_features(y, augment=False):
     """
     Log-Mel spectrogram with ref=1.0 (fixed reference) to preserve loudness.
-    SpecAugment applied only when augment=True (training).
+
+    WARNING: augment=True should ONLY be used at training time in the
+    DataLoader, NEVER during data preparation. All saved .pt files must
+    be clean (un-augmented) spectrograms. Augmentation applied here is
+    SpecAugment (frequency and time masking).
     """
     mel_spec = librosa.feature.melspectrogram(
         y=y, sr=SAMPLE_RATE, n_mels=N_MELS,
