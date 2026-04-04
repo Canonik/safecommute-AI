@@ -300,3 +300,63 @@ Run: 2026-04-04 04:08
 
 ---
 
+
+## v2 Pipeline: AudioSet-based, No Acted Speech
+
+**Changes**: Dropped CREMA-D/SAVEE/TESS/RAVDESS. Added AudioSet (6 threat + 7 safe categories, chunked 10s→3s). Fixed data leakage (source-aware splits via sha256 hash and predefined folds). Fixed augmentation timing (training-time only, no baked augmentation). Deterministic center-crop. Per-sample strong augmentation.
+
+**Training data**: 28,772 samples (19,328 safe + 9,444 unsafe) from UrbanSound8K, ESC-50, AudioSet, YouTube, Violence dataset. Class balance: 67/33.
+
+### 3-Seed Evaluation (gamma=3.0)
+
+| Seed | AUC | Accuracy | F1 | Epochs |
+|------|-----|----------|----|--------|
+| 42 | 0.8538 | 0.6440 | 0.6500 | 16 |
+| 123 | 0.8564 | 0.6748 | 0.6837 | 12 |
+| 7 | 0.8217 | 0.5990 | 0.5988 | 8 |
+| **Mean** | **0.8440** | **0.6393** | **0.6442** | |
+| **Std** | **0.0193** | **0.0381** | **0.0434** | |
+
+### Gamma 2.0 Comparison (seed=42)
+
+| Gamma | AUC | Accuracy | F1 |
+|-------|-----|----------|----|
+| 3.0 | 0.8538 | 0.6440 | 0.6500 |
+| 2.0 | 0.8514 | 0.6858 | 0.6958 |
+
+### Best Model (seed=123) — Full Analysis
+
+| Metric | Train | Val | Test | Train-Test Gap |
+|--------|-------|-----|------|----------------|
+| AUC-ROC | 0.928 | 0.819 | 0.856 | +0.072 |
+| Accuracy | 0.746 | 0.660 | 0.675 | +0.071 |
+| F1 | 0.752 | 0.660 | 0.684 | +0.068 |
+
+### Per-Source Breakdown (test set)
+
+| Source | Accuracy | Samples | Type |
+|--------|----------|---------|------|
+| yt_scream | 87.6% | 225 | real-world |
+| hns | 88.0% | 643 | environmental |
+| viol_violence | 72.3% | 296 | real-world |
+| as (AudioSet) | 65.0% | 4241 | AudioSet |
+| yt_metro | 62.9% | 442 | real-world |
+| bg | 61.5% | 582 | environmental |
+| esc | 48.1% | 160 | environmental |
+
+### v1 vs v2 Comparison
+
+| Metric | v1 (with leakage + acted speech) | v2 (clean) |
+|--------|----------------------------------|------------|
+| Test AUC | 0.950 | 0.856 |
+| Lowest source | SAVEE 35.7% | ESC-50 48.1% |
+| Training samples | 16,037 | 28,772 |
+| Data leakage | Yes (random per-sample split) | No (source-aware) |
+| Augmentation | Baked at prep time | Training-time only |
+
+**Note**: The v1 AUC of 0.950 was inflated by data leakage (random splits), speaker memorization (TESS 2 speakers, 98.8%), and baked augmentation. The v2 AUC of 0.856 is on genuinely clean data. The real-world detection quality (YouTube screams 87.6%) remains strong.
+
+Run: 2026-04-04
+
+---
+
