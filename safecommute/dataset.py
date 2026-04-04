@@ -1,21 +1,36 @@
 """Shared dataset class for SafeCommute AI."""
 
 import os
+import random
+
 import torch
+import torchaudio.transforms as T
 from torch.utils.data import Dataset
 
 from safecommute.constants import TIME_FRAMES
 
 
 class TensorAudioDataset(Dataset):
-    """Loads pre-computed .pt spectrogram tensors from a split directory."""
+    """
+    Loads pre-computed .pt spectrogram tensors from a split directory.
 
-    def __init__(self, split_dir, mean=0.0, std=1.0, load_teacher=False):
+    When augment=True (training only), applies per-sample SpecAugment
+    (frequency and time masking) in __getitem__. This means each epoch
+    sees different augmentation — unlike the old pipeline which baked
+    one fixed augmentation into the .pt files.
+    """
+
+    def __init__(self, split_dir, mean=0.0, std=1.0, augment=False, load_teacher=False):
         self.filepaths = []
         self.labels = []
         self.mean = mean
         self.std = std
+        self.augment = augment
         self.load_teacher = load_teacher
+
+        # SpecAugment transforms (only used when augment=True)
+        self.freq_mask = T.FrequencyMasking(freq_mask_param=10)
+        self.time_mask = T.TimeMasking(time_mask_param=20)
 
         for label, class_name in enumerate(['0_safe', '1_unsafe']):
             class_dir = os.path.join(split_dir, class_name)
@@ -40,7 +55,15 @@ class TensorAudioDataset(Dataset):
             pad = torch.zeros(1, features.shape[1], TIME_FRAMES - t)
             features = torch.cat([features, pad], dim=-1)
 
+        # Normalize
         features = (features - self.mean) / (self.std + 1e-8)
+
+        # Training-time augmentation: different every epoch
+        if self.augment:
+            if random.random() < 0.5:
+                features = self.freq_mask(features)
+            if random.random() < 0.5:
+                features = self.time_mask(features)
 
         hard_label = torch.tensor(self.labels[idx], dtype=torch.long)
 
