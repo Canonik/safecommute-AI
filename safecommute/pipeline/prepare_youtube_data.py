@@ -2,18 +2,34 @@
 Process YouTube audio into training-ready .pt tensors.
 Chunks long audio into 3-second windows with overlap.
 Metro ambient → safe class, screams → unsafe class.
+
+Split is determined per SOURCE FILE (not per chunk) using sha256 hash
+to prevent data leakage. All chunks from the same file go to the same split.
+All spectrograms are saved clean (no augmentation).
 """
 import os
 import sys
-import random
+import hashlib
+
 import numpy as np
 import librosa
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from safecommute.constants import SAMPLE_RATE, TARGET_LENGTH, DATA_DIR, N_MELS, N_FFT, HOP_LENGTH
+from safecommute.constants import SAMPLE_RATE, TARGET_LENGTH, DATA_DIR
 from safecommute.features import extract_features, pad_or_truncate
 from safecommute.utils import seed_everything
+
+
+def sha256_split(filename):
+    """Deterministic split based on sha256 hash. 70/15/15 train/val/test."""
+    h = int(hashlib.sha256(filename.encode()).hexdigest(), 16) % 100
+    if h < 70:
+        return 'train'
+    elif h < 85:
+        return 'val'
+    else:
+        return 'test'
 
 
 def chunk_audio(y, sr=SAMPLE_RATE, chunk_sec=3.0, hop_sec=1.5):
@@ -39,16 +55,16 @@ def process_directory(audio_dir, label, prefix, output_base):
             y, sr = librosa.load(path, sr=SAMPLE_RATE, mono=True)
             if len(y) < SAMPLE_RATE:  # skip < 1 second
                 continue
+
+            # Split by SOURCE FILE — all chunks go to the same split
+            split = sha256_split(fname)
+            cls = '1_unsafe' if label == 1 else '0_safe'
+            out_dir = os.path.join(output_base, split, cls)
+            os.makedirs(out_dir, exist_ok=True)
+
             chunks = chunk_audio(y)
             for i, chunk in enumerate(chunks):
-                # Random split 70/15/15
-                r = random.random()
-                split = 'train' if r < 0.70 else ('val' if r < 0.85 else 'test')
-                cls = '1_unsafe' if label == 1 else '0_safe'
-                out_dir = os.path.join(output_base, split, cls)
-                os.makedirs(out_dir, exist_ok=True)
-
-                features = extract_features(chunk, augment=(split == 'train'))
+                features = extract_features(chunk, augment=False)
                 base = fname.replace('.wav', '')
                 out_path = os.path.join(out_dir, f"{prefix}_{base}_c{i:03d}.pt")
                 torch.save(features, out_path)
@@ -66,6 +82,7 @@ def main():
 
     print("=" * 50)
     print(" Processing YouTube Audio")
+    print(" (source-level sha256 split, no augmentation)")
     print("=" * 50)
 
     # Process metro ambient → safe (label=0)

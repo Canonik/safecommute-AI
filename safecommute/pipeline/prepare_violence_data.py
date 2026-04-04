@@ -1,18 +1,33 @@
 """
 Process the HuggingFace violence detection dataset into training .pt tensors.
 Label 1 (violent) → unsafe, Label 0 (non-violent) → safe.
+
+Split is determined per SOURCE FILE (not per chunk) using sha256 hash
+to prevent data leakage. All chunks from the same file go to the same split.
+All spectrograms are saved clean (no augmentation).
 """
 import os
 import sys
-import random
+import hashlib
+
 import librosa
-import numpy as np
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.constants import SAMPLE_RATE, TARGET_LENGTH, DATA_DIR
 from safecommute.features import extract_features, pad_or_truncate
 from safecommute.utils import seed_everything
+
+
+def sha256_split(filename):
+    """Deterministic split based on sha256 hash. 70/15/15 train/val/test."""
+    h = int(hashlib.sha256(filename.encode()).hexdigest(), 16) % 100
+    if h < 70:
+        return 'train'
+    elif h < 85:
+        return 'val'
+    else:
+        return 'test'
 
 
 def chunk_audio(y, sr=SAMPLE_RATE, chunk_sec=3.0, hop_sec=1.5):
@@ -36,6 +51,11 @@ def main():
     total_safe = 0
     total_unsafe = 0
 
+    print("=" * 50)
+    print(" Processing Violence Dataset")
+    print(" (source-level sha256 split, no augmentation)")
+    print("=" * 50)
+
     for fname in sorted(os.listdir(violence_dir)):
         if not fname.endswith('.wav'):
             continue
@@ -50,15 +70,16 @@ def main():
             y, sr = librosa.load(path, sr=SAMPLE_RATE, mono=True)
             if len(y) < SAMPLE_RATE:
                 continue
+
+            # Split by SOURCE FILE — all chunks go to the same split
+            split = sha256_split(fname)
+            cls = '1_unsafe' if label == 1 else '0_safe'
+            out_dir = os.path.join(DATA_DIR, split, cls)
+            os.makedirs(out_dir, exist_ok=True)
+
             chunks = chunk_audio(y)
             for i, chunk in enumerate(chunks):
-                r = random.random()
-                split = 'train' if r < 0.70 else ('val' if r < 0.85 else 'test')
-                cls = '1_unsafe' if label == 1 else '0_safe'
-                out_dir = os.path.join(DATA_DIR, split, cls)
-                os.makedirs(out_dir, exist_ok=True)
-
-                features = extract_features(chunk, augment=(split == 'train'))
+                features = extract_features(chunk, augment=False)
                 base = fname.replace('.wav', '')
                 out_path = os.path.join(out_dir, f"viol_{base}_c{i:03d}.pt")
                 torch.save(features, out_path)
@@ -70,7 +91,7 @@ def main():
         except Exception:
             continue
 
-    print(f"Violence dataset processed: {total_safe} safe + {total_unsafe} unsafe chunks")
+    print(f"  Violence dataset: {total_safe} safe + {total_unsafe} unsafe chunks")
 
     # Updated counts
     for split in ['train', 'val', 'test']:
