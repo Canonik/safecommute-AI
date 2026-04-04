@@ -127,7 +127,7 @@ These experiments validate that the model genuinely generalizes rather than memo
 | 5-fold cross-validation (source-aware) | **Done** | `experiments/cross_validation.py` |
 | Threshold optimization | **Done** | `experiments/threshold_optimization.py` |
 | Ablation study (SE, GRU, channels) | **Done** | `experiments/ablation_study.py` |
-| Leave-one-source-out (LOSO) | Queued | `experiments/loso_evaluation.py` |
+| Leave-one-source-out (LOSO) | **Done** | `experiments/loso_evaluation.py` |
 | Regularization sweep (dropout/wd/ls) | Queued | `experiments/regularization_sweep.py` |
 
 Results are appended to `experiment_log.md` as they complete.
@@ -160,6 +160,25 @@ Proves each architectural component contributes to the final AUC.
 | **No GRU (global pool)** | **0.926** | **-0.024** | **1.16M** |
 
 **The GRU is the most critical component** — removing it causes the largest AUC drop (0.024). It captures temporal escalation patterns that frame-level CNNs miss. SE attention adds a small but consistent benefit (+0.003). Half channels (458K params) is surprisingly competitive at only -0.004 AUC.
+
+### Leave-One-Source-Out (completed)
+
+Train on 8 sources, test on the held-out 1. The hardest generalization test.
+
+| Held-Out Source | AUC | Accuracy | Samples |
+|-----------------|-----|----------|---------|
+| Violence | 0.853 | 50.5% | 2,012 |
+| TESS | 0.814 | 51.7% | 1,600 |
+| YouTube | 0.803 | 85.1% | 4,712 |
+| RAVDESS | 0.747 | 45.4% | 864 |
+| CREMA-D | 0.711 | 48.4% | 6,171 |
+| SAVEE | 0.672 | 38.3% | 360 |
+| BG (safe only) | N/A | 71.9% | 3,000 |
+| ESC (safe only) | N/A | 73.6% | 800 |
+| HNS (safe only) | N/A | 85.3% | 3,429 |
+| **Mean AUC** | **0.767 +/- 0.062** | | |
+
+**Key insight**: YouTube (real-world) generalizes best (AUC=0.803, 85% acc) even when completely held out. Acted speech sources (CREMA-D, SAVEE) generalize poorly — confirming the domain gap is the main challenge, not overfitting.
 
 ### Threshold Optimization (completed)
 

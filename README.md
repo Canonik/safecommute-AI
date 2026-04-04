@@ -201,7 +201,7 @@ PYTHONPATH=. python demo.py
 | 5-fold CV (source-aware) | AUC = 0.944 +/- 0.006 | **Done** |
 | Threshold optimization | Acc 74.5% -> 86.0% at t=0.622 | **Done** |
 | Ablation study | GRU most critical (-0.024 AUC without) | **Done** |
-| Leave-one-source-out | — | Queued |
+| Leave-one-source-out | Mean AUC=0.767, YouTube=0.803 | **Done** |
 
 ### Next Steps
 
