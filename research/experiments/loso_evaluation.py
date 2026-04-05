@@ -1,12 +1,21 @@
 """
-Leave-One-Source-Out (LOSO) Evaluation.
-Train on 8 sources, test on the held-out 1 — repeat for all 9.
-The ultimate generalization test: does the model work on data sources it has never seen?
+Leave-One-Source-Out (LOSO) Evaluation (v2).
+
+For each unique data source, train on everything EXCEPT that source,
+then evaluate on the held-out source only. This is the ultimate
+generalization test: can the model detect threats from audio sources
+it has never seen during training?
+
+v2 changes:
+  - Source extraction handles v2 naming (as_screaming, yt_metro, etc.)
+  - Uses dataset-level augmentation (augment=True) instead of deleted spec_augment_strong
+  - Batch-level GPU strong augmentation matching train.py
 """
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -20,8 +29,8 @@ from datetime import datetime
 from safecommute.model import SafeCommuteCNN
 from safecommute.constants import DATA_DIR, STATS_PATH
 from safecommute.dataset import TensorAudioDataset
-from safecommute.utils import seed_everything
-from safecommute.pipeline.train import FocalLoss, spec_augment_strong, mixup_batch
+from safecommute.utils import seed_everything, worker_init_fn
+from safecommute.pipeline.train import FocalLoss, mixup_batch
 
 BATCH_SIZE = 32
 EPOCHS = 25
@@ -40,12 +49,42 @@ def load_stats():
     return s['mean'], s['std']
 
 
+def get_source_from_filename(fname):
+    """
+    Extract meaningful source prefix from .pt filename.
+
+    v2 naming conventions:
+      as_screaming_{id}_c000.pt  → as_screaming
+      as_crowd_{id}_c001.pt      → as_crowd
+      yt_metro_{id}_c000.pt      → yt_metro
+      yt_scream_{id}_c000.pt     → yt_scream
+      viol_violence_{id}_c000.pt → viol
+      bg_{id}.pt                 → bg
+      hns_{id}.pt                → hns
+      esc_{name}.pt              → esc
+      esc_hns_{name}.pt          → esc
+    """
+    parts = fname.split('_')
+    if parts[0] == 'as' and len(parts) > 1:
+        return f"as_{parts[1]}"  # as_screaming, as_crowd, etc.
+    elif parts[0] == 'yt' and len(parts) > 1:
+        return f"yt_{parts[1]}"  # yt_metro, yt_scream
+    elif parts[0] == 'viol':
+        return 'viol'
+    elif parts[0] == 'esc':
+        return 'esc'
+    elif parts[0] == 'fsd' and len(parts) > 1:
+        return f"fsd_{parts[1]}"
+    else:
+        return parts[0]  # bg, hns
+
+
 def get_source_indices(dataset):
-    """Map each source prefix to its sample indices."""
+    """Map each source to its sample indices."""
     source_map = defaultdict(list)
     for i, path in enumerate(dataset.filepaths):
         fname = os.path.basename(path)
-        source = fname.split('_')[0]
+        source = get_source_from_filename(fname)
         source_map[source].append(i)
     return dict(source_map)
 
@@ -56,7 +95,8 @@ def train_and_evaluate(train_indices, test_indices, dataset, device):
     test_subset = Subset(dataset, test_indices)
 
     train_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True,
-                             num_workers=2, pin_memory=True)
+                              num_workers=2, pin_memory=True,
+                              worker_init_fn=worker_init_fn)
     test_loader = DataLoader(test_subset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
     model = SafeCommuteCNN().to(device)
@@ -82,7 +122,9 @@ def train_and_evaluate(train_indices, test_indices, dataset, device):
     inner_train_indices = [train_indices[i] for i in perm[val_size:]]
 
     inner_train_loader = DataLoader(Subset(dataset, inner_train_indices),
-                                    batch_size=BATCH_SIZE, shuffle=True, num_workers=2, pin_memory=True)
+                                    batch_size=BATCH_SIZE, shuffle=True,
+                                    num_workers=2, pin_memory=True,
+                                    worker_init_fn=worker_init_fn)
     inner_val_loader = DataLoader(Subset(dataset, inner_val_indices),
                                   batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
@@ -90,10 +132,19 @@ def train_and_evaluate(train_indices, test_indices, dataset, device):
         model.train()
         for inputs, labels in inner_train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
-            aug_inputs = []
-            for i in range(inputs.size(0)):
-                aug_inputs.append(spec_augment_strong(inputs[i].cpu()).to(device))
-            inputs = torch.stack(aug_inputs)
+
+            # Per-sample GPU augmentation (matching train.py)
+            B = inputs.size(0)
+            noise_mask = torch.rand(B, 1, 1, 1, device=device) < 0.3
+            inputs = inputs + noise_mask * torch.randn_like(inputs) * 0.1
+            for i in range(B):
+                if random.random() < 0.3:
+                    shift = random.randint(-20, 20)
+                    inputs[i] = torch.roll(inputs[i], shifts=shift, dims=-1)
+                if random.random() < 0.2:
+                    f_start = random.randint(0, 50)
+                    f_width = random.randint(3, 10)
+                    inputs[i, :, f_start:f_start + f_width, :] = 0
 
             if np.random.random() < MIXUP_PROB:
                 inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels, MIXUP_ALPHA)
@@ -130,6 +181,8 @@ def train_and_evaluate(train_indices, test_indices, dataset, device):
                 break
 
     # Evaluate on held-out source
+    if best_state is None:
+        best_state = {k: v.clone() for k, v in model.state_dict().items()}
     model.load_state_dict(best_state)
     model.eval()
     all_probs, all_labels, all_preds = [], [], []
@@ -159,13 +212,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mean, std = load_stats()
 
-    print("=== Leave-One-Source-Out (LOSO) Evaluation ===\n")
+    print("=== Leave-One-Source-Out (LOSO) Evaluation v2 ===\n")
 
-    # Load ALL data merged
+    # Load ALL data merged (with augmentation for training subsets)
     all_filepaths = []
     all_labels_list = []
     for split in ['train', 'val', 'test']:
-        ds = TensorAudioDataset(os.path.join(DATA_DIR, split), mean, std)
+        ds = TensorAudioDataset(os.path.join(DATA_DIR, split), mean, std, augment=True)
         all_filepaths.extend(ds.filepaths)
         all_labels_list.extend(ds.labels)
 
@@ -174,7 +227,10 @@ def main():
     merged.labels = all_labels_list
     merged.mean = mean
     merged.std = std
+    merged.augment = True  # augmentation for training subsets
     merged.load_teacher = False
+    merged.freq_mask = ds.freq_mask
+    merged.time_mask = ds.time_mask
 
     source_indices = get_source_indices(merged)
     sources = sorted(source_indices.keys())
@@ -200,15 +256,16 @@ def main():
         auc, acc, f1 = train_and_evaluate(train_indices, test_indices, merged, device)
         results.append({'source': held_out, 'auc': auc, 'accuracy': acc, 'f1': f1,
                         'n_samples': len(test_indices)})
-        print(f"  {held_out}: AUC={auc:.4f}, Acc={acc:.4f}, F1={f1:.4f}")
+        auc_str = f"{auc:.4f}" if not np.isnan(auc) else "N/A"
+        print(f"  {held_out}: AUC={auc_str}, Acc={acc:.4f}, F1={f1:.4f}")
 
     # Summary
     valid = [r for r in results if not np.isnan(r['auc'])]
     aucs = [r['auc'] for r in valid]
 
-    print(f"\n{'='*50}")
-    print(f"  LOSO Results")
-    print(f"{'='*50}")
+    print(f"\n{'='*60}")
+    print(f"  LOSO v2 Results")
+    print(f"{'='*60}")
     print(f"\n  | Source | AUC | Accuracy | F1 | Samples |")
     print(f"  |--------|-----|----------|----|---------| ")
     for r in sorted(results, key=lambda x: x.get('auc', 0) if not np.isnan(x.get('auc', 0)) else -1, reverse=True):
@@ -217,22 +274,26 @@ def main():
 
     if aucs:
         print(f"\n  Mean AUC (sources with both classes): {np.mean(aucs):.4f} +/- {np.std(aucs):.4f}")
+        best = max(valid, key=lambda x: x['auc'])
+        worst = min(valid, key=lambda x: x['auc'])
+        print(f"  Easiest to generalize: {best['source']} (AUC={best['auc']:.4f})")
+        print(f"  Hardest to generalize: {worst['source']} (AUC={worst['auc']:.4f})")
 
     # Save
     os.makedirs("research/results", exist_ok=True)
     save_data = {
-        'method': 'Leave-One-Source-Out (LOSO)',
+        'method': 'Leave-One-Source-Out (LOSO) v2',
         'results': results,
         'mean_auc': float(np.mean(aucs)) if aucs else None,
         'std_auc': float(np.std(aucs)) if aucs else None,
         'timestamp': datetime.now().isoformat(),
     }
-    with open("research/results/loso_results.json", 'w') as f:
+    with open("research/results/loso_v2_results.json", 'w') as f:
         json.dump(save_data, f, indent=2, default=str)
 
     # Append to experiment log
     with open("research/experiment_log.md", 'a') as f:
-        f.write(f"\n## Leave-One-Source-Out (LOSO)\n\n")
+        f.write(f"\n## Leave-One-Source-Out (LOSO) v2\n\n")
         f.write(f"| Held-Out Source | AUC | Accuracy | F1 | Samples |\n")
         f.write(f"|-----------------|-----|----------|----|---------|\n")
         for r in sorted(results, key=lambda x: x.get('auc', 0) if not np.isnan(x.get('auc', 0)) else -1, reverse=True):
@@ -243,7 +304,7 @@ def main():
             f.write(f"| **Std** | **{np.std(aucs):.4f}** | | | |\n")
         f.write(f"\nRun: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n---\n\n")
 
-    print(f"\n  Results saved to research/results/loso_results.json")
+    print(f"\n  Results saved to research/results/loso_v2_results.json")
 
 
 if __name__ == "__main__":
