@@ -1,5 +1,5 @@
 """
-Ablation Study: prove each architectural component contributes.
+Ablation Study (v2): prove each architectural component contributes.
 Systematically remove one component at a time and measure the drop.
 
 Variants:
@@ -7,12 +7,13 @@ Variants:
   2. No SE blocks (remove channel attention)
   3. No GRU (replace with global average pooling)
   4. No multi-scale pooling (use only last hidden state)
-  5. Half channels (64→32, 128→64, 256→128)
+  5. Half channels (64->32, 128->64, 256->128)
 """
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,8 +27,8 @@ from datetime import datetime
 from safecommute.model import SafeCommuteCNN, SEBlock, ConvBlock
 from safecommute.constants import DATA_DIR, STATS_PATH, N_MELS
 from safecommute.dataset import TensorAudioDataset
-from safecommute.utils import seed_everything
-from safecommute.pipeline.train import FocalLoss, spec_augment_strong, mixup_batch
+from safecommute.utils import seed_everything, worker_init_fn
+from safecommute.pipeline.train import FocalLoss, mixup_batch
 from research.experiments.eval_utils import load_stats, count_parameters, model_size_mb
 
 BATCH_SIZE = 32
@@ -135,13 +136,14 @@ class SafeCommuteCNN_Half(nn.Module):
 
 
 def train_and_eval(model, name, device):
-    """Train a model and evaluate on test set."""
+    """Train a model variant and evaluate on test set."""
     mean, std = load_stats()
-    train_ds = TensorAudioDataset(os.path.join(DATA_DIR, 'train'), mean, std)
+    train_ds = TensorAudioDataset(os.path.join(DATA_DIR, 'train'), mean, std, augment=True)
     val_ds = TensorAudioDataset(os.path.join(DATA_DIR, 'val'), mean, std)
     test_ds = TensorAudioDataset(os.path.join(DATA_DIR, 'test'), mean, std)
 
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, pin_memory=True)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
+                              num_workers=2, pin_memory=True, worker_init_fn=worker_init_fn)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
     test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
@@ -162,16 +164,28 @@ def train_and_eval(model, name, device):
         model.train()
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
-            aug = [spec_augment_strong(inputs[i].cpu()).to(device) for i in range(inputs.size(0))]
-            inputs = torch.stack(aug)
+
+            # Per-sample GPU augmentation (matching train.py)
+            B = inputs.size(0)
+            noise_mask = torch.rand(B, 1, 1, 1, device=device) < 0.3
+            inputs = inputs + noise_mask * torch.randn_like(inputs) * 0.1
+            for i in range(B):
+                if random.random() < 0.3:
+                    shift = random.randint(-20, 20)
+                    inputs[i] = torch.roll(inputs[i], shifts=shift, dims=-1)
+                if random.random() < 0.2:
+                    f_start = random.randint(0, 50)
+                    f_width = random.randint(3, 10)
+                    inputs[i, :, f_start:f_start + f_width, :] = 0
 
             if np.random.random() < 0.5:
                 inputs, la, lb, lam = mixup_batch(inputs, labels, 0.3)
-                loss = lam * criterion(model(inputs), la) + (1-lam) * criterion(model(inputs), lb)
+                loss = lam * criterion(model(inputs), la) + (1 - lam) * criterion(model(inputs), lb)
             else:
                 loss = criterion(model(inputs), labels)
 
-            optimizer.zero_grad(); loss.backward()
+            optimizer.zero_grad()
+            loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
@@ -185,12 +199,16 @@ def train_and_eval(model, name, device):
         vl /= max(len(val_loader), 1)
 
         if vl < best_val_loss:
-            best_val_loss = vl; epochs_no_impro = 0
+            best_val_loss = vl
+            epochs_no_impro = 0
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
         else:
             epochs_no_impro += 1
-            if epochs_no_impro >= PATIENCE: break
+            if epochs_no_impro >= PATIENCE:
+                break
 
+    if best_state is None:
+        best_state = {k: v.clone() for k, v in model.state_dict().items()}
     model.load_state_dict(best_state)
     model.eval()
     probs_all, labels_all = [], []
@@ -220,7 +238,7 @@ def main():
         ("Half channels", SafeCommuteCNN_Half().to(device)),
     ]
 
-    print("=== Ablation Study ===\n")
+    print("=== Ablation Study v2 ===\n")
     results = []
 
     for name, model in variants:
@@ -232,22 +250,22 @@ def main():
     # Summary
     baseline_auc = results[0]['auc']
     print(f"\n{'='*60}")
-    print(f"  Ablation Study Results")
+    print(f"  Ablation Study v2 Results")
     print(f"{'='*60}")
-    print(f"  | Variant | AUC | Acc | Params | Delta AUC |")
-    print(f"  |---------|-----|-----|--------|-----------|")
+    print(f"  | {'Variant':<25} | {'AUC':>6} | {'Acc':>6} | {'F1':>6} | {'Params':>10} | {'Delta':>7} |")
+    print(f"  |{'-'*27}|{'-'*8}|{'-'*8}|{'-'*8}|{'-'*12}|{'-'*9}|")
     for r in results:
         delta = r['auc'] - baseline_auc
-        print(f"  | {r['name']} | {r['auc']:.4f} | {r['accuracy']:.4f} | "
-              f"{r['params']:,} | {delta:+.4f} |")
+        print(f"  | {r['name']:<25} | {r['auc']:.4f} | {r['accuracy']:.4f} | "
+              f"{r['f1']:.4f} | {r['params']:>10,} | {delta:+.4f} |")
 
     # Save
     os.makedirs("research/results", exist_ok=True)
-    with open("research/results/ablation_results.json", 'w') as f:
+    with open("research/results/ablation_v2_results.json", 'w') as f:
         json.dump({'results': results, 'timestamp': datetime.now().isoformat()}, f, indent=2)
 
     with open("research/experiment_log.md", 'a') as f:
-        f.write(f"\n## Ablation Study\n\n")
+        f.write(f"\n## Ablation Study v2\n\n")
         f.write(f"| Variant | AUC | Accuracy | F1 | Params | vs Full |\n")
         f.write(f"|---------|-----|----------|----|---------|---------|\n")
         for r in results:
@@ -255,6 +273,8 @@ def main():
             f.write(f"| {r['name']} | {r['auc']:.4f} | {r['accuracy']:.4f} | "
                     f"{r['f1']:.4f} | {r['params']:,} | {delta:+.4f} |\n")
         f.write(f"\nRun: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n---\n\n")
+
+    print(f"\n  Results saved to research/results/ablation_v2_results.json")
 
 
 if __name__ == "__main__":
