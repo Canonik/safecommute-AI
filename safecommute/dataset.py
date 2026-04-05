@@ -1,7 +1,6 @@
 """Shared dataset class for SafeCommute AI."""
 
 import os
-import random
 
 import torch
 import torchaudio.transforms as T
@@ -59,10 +58,12 @@ class TensorAudioDataset(Dataset):
         features = (features - self.mean) / (self.std + 1e-8)
 
         # Training-time augmentation: different every epoch
+        # Use torch.rand instead of random.random to avoid DataLoader
+        # worker seed collision (forked workers share Python random state)
         if self.augment:
-            if random.random() < 0.5:
+            if torch.rand(1).item() < 0.5:
                 features = self.freq_mask(features)
-            if random.random() < 0.5:
+            if torch.rand(1).item() < 0.5:
                 features = self.time_mask(features)
 
         hard_label = torch.tensor(self.labels[idx], dtype=torch.long)
