@@ -1,0 +1,16 @@
+\begin{table}[h]
+\centering
+\caption{Ablation study: contribution of each architectural component.}
+\label{tab:ablation}
+\begin{tabular}{lccccr}
+\toprule
+Variant & Params & AUC & Acc & F1 & $\Delta$AUC \\
+\midrule
+Full model (baseline) & 1,829,444 & 0.827 & 0.605 & 0.606 & +0.000 \\
+No SE attention & 1,818,692 & 0.849 & 0.622 & 0.626 & +0.022 \\
+No GRU (global pool) & 1,156,420 & 0.843 & 0.591 & 0.589 & +0.016 \\
+No multi-scale pool & 1,828,932 & 0.855 & 0.613 & 0.614 & +0.028 \\
+Half channels & 458,404 & 0.836 & 0.582 & 0.580 & +0.009 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,37 +1,47 @@
 # SafeCommute AI
 
-Privacy-first edge audio classifier for detecting escalation (aggressive shouting, distress screams) in public transport. Built by students at Bocconi University.
+Privacy-first edge audio classifier for detecting escalation (aggressive shouting, distress screams) in public spaces. Built by students at Bocconi University.
 
 **Raw audio is never recorded, stored, or transmitted.** Only non-reconstructible mel spectrograms are processed on-device. GDPR-compliant by architecture.
 
+Deployable to any acoustic environment via fine-tuning. Base model trained on universal threat sounds + hard negatives. Per-deployment fine-tuning adapts the "safe" class to the target environment (metro, bar, bus) in minutes.
+
 ---
 
-## Results
+## Results (v2 — clean data, no acted speech, no leakage)
 
 | Metric | Train | Val | Test | Gap |
 |--------|-------|-----|------|-----|
-| AUC-ROC | 0.978 | 0.959 | **0.950** | 0.028 |
-| Accuracy | 0.771 | 0.768 | 0.745 | 0.026 |
-| F1 | 0.785 | 0.782 | 0.760 | 0.025 |
+| AUC-ROC | 0.928 | 0.819 | **0.856** | 0.072 |
+| Accuracy | 0.746 | 0.660 | 0.675 | 0.071 |
+| F1 | 0.752 | 0.660 | 0.684 | 0.068 |
 
-**No overfitting** (train-test AUC gap = 0.028). Noise-robust (AUC >0.94 at Gaussian noise sigma=0.2). 7 MB float32, ~7 ms CPU inference.
+**3-seed evaluation**: AUC = 0.844 +/- 0.019, Accuracy = 0.639 +/- 0.038, F1 = 0.644 +/- 0.043.
 
-With optimized threshold (Youden's J = 0.622): **Accuracy = 86.0%, F1 = 0.865, Sensitivity = 89.2%**.
+7 MB float32, 5 MB INT8, ~7 ms CPU inference. Deployment test: 100% threat detection rate.
 
-### Per-Source Accuracy
+### Per-Source Accuracy (test set)
 
 | Source | Accuracy | Type |
 |--------|----------|------|
-| YouTube screams | 97.3% | Real-world |
-| TESS | 98.8% | Acted speech |
-| Hard negatives (HNS) | 97.1% | Environmental |
-| YouTube metro | 90.3% | Real-world |
-| ESC-50 | 71.9% | Environmental |
-| Violence dataset | 71.0% | Real-world |
-| RAVDESS | 52.1% | Acted speech |
-| CREMA-D | 45.2% | Acted speech |
+| YouTube screams | 87.6% | Real-world |
+| Hard negatives (HNS) | 88.0% | Environmental |
+| Violence dataset | 72.3% | Real-world |
+| AudioSet (all categories) | 65.0% | AudioSet |
+| YouTube metro | 62.9% | Real-world |
+| UrbanSound8K (bg) | 61.5% | Environmental |
+| ESC-50 | 48.1% | Environmental |
 
-The model excels on real-world audio but struggles with acted speech — acted anger sounds fundamentally different from real escalation.
+### SOTA Comparison
+
+| Model | Params | Size | Latency | AUC |
+|-------|--------|------|---------|-----|
+| **SafeCommute (ours)** | **1.83M** | **7MB** | **12ms** | **0.856** |
+| PANNs CNN14 | 81.8M | 320MB | 250ms | 0.624 |
+| AST Transformer | 86.6M | 330MB | 965ms | 0.615 |
+| Wav2Vec2 | 94.4M | 360MB | 192ms | 0.523 |
+
+Our model outperforms all SOTA baselines on this task while being 44x smaller and 21x faster.
 
 ---
 
@@ -67,89 +77,53 @@ Multi-Scale Pooling:
 Classifier: Dropout(0.3) -> Linear(384->2)
 ```
 
-### Why This Architecture
-
-- **CNN6-style blocks** (from PANNs, Kong et al. 2020): double-conv blocks designed for mel spectrograms, not repurposed ImageNet architectures
-- **SE attention**: learns which frequency bands matter (e.g., 2-4 kHz for screams), negligible parameter cost
-- **GRU**: captures temporal escalation patterns (rising pitch, increasing intensity) that frame-level CNNs miss
-- **Multi-scale pooling**: combines endpoint (last hidden) with aggregate statistics (mean/max), capturing both how the audio ends and its overall character
-
 ### Training Recipe
 
 - **Loss**: Focal loss (gamma=3) with dynamic class weights + label smoothing (0.1)
-- **Augmentation**: SpecAugment (freq/time masking), Gaussian noise, circular time shift, mixup (alpha=0.3)
-- **Optimizer**: AdamW (lr=3e-4, weight_decay=1e-4), cosine annealing warm restarts (T0=5, Tmult=2)
+- **Augmentation**: SpecAugment (freq/time masking) per-sample in DataLoader + batch GPU ops (Gaussian noise, time shift, frequency dropout)
+- **Optimizer**: AdamW (lr=3e-4, weight_decay=1e-4), cosine annealing warm restarts
 - **Regularization**: Dropout 0.3, gradient clipping (max_norm=1.0), early stopping (patience=6)
+- **Data**: Clean spectrograms only (no augmentation at prep time)
 
 ---
 
-## Data
+## Data Strategy (v2)
 
-16,037 training / 3,439 validation / 3,472 test samples from 9 sources.
+Training data is organized in three layers:
 
-| Source | Train | Val | Test | Type | Safe/Unsafe Mapping |
-|--------|-------|-----|------|------|---------------------|
-| CREMA-D | 4,301 | 884 | 986 | Acted speech (91 actors) | ANG,FEA -> unsafe; HAP,NEU,SAD -> safe |
-| YouTube | 3,300 | 721 | 691 | Real metro + screams | Metro ambient -> safe; screams -> unsafe |
-| TESS | 1,097 | 256 | 247 | Acted speech (2 speakers) | angry,fear -> unsafe; neutral,happy -> safe |
-| HNS | 2,385 | 526 | 518 | Environmental sounds | All safe (loud but non-threatening) |
-| UrbanSound8K | 2,125 | 445 | 430 | Urban backgrounds | All safe |
-| Violence | 1,407 | 305 | 300 | Violence detection dataset | label 0 -> safe; label 1 -> unsafe |
-| RAVDESS | 594 | 126 | 144 | Acted speech (24 actors) | emotion 05,06 -> unsafe; 01,02,03 -> safe |
-| ESC-50 | 566 | 120 | 114 | Environmental sounds | All safe |
-| SAVEE | 262 | 56 | 42 | Acted speech (4 speakers) | angry,fear -> unsafe; rest -> safe |
+**Layer 1 — Universal threat sounds (unsafe):** AudioSet (Screaming, Shout, Yell, Gunshot, Explosion, Glass breaking) + YouTube real screams + violence dataset
 
-**Class balance**: 74% safe / 26% unsafe, handled by focal loss with inverse-frequency class weights.
+**Layer 2 — Universal hard negatives (safe):** AudioSet (Laughter, Crowd, Speech, Music, Applause, Cheering, Singing) + ESC-50 + UrbanSound8K
 
-### Feature Format
+**Layer 3 — Deployment-specific ambient (safe, fine-tuning only):** Recorded in-situ audio per deployment vertical (metro rides, bar ambience, bus rides, etc.)
 
-All audio: 16kHz mono, 3-second clips (pad or random crop). Stored as pre-computed `.pt` tensors:
-- Log-mel spectrogram: `librosa.feature.melspectrogram()` with ref=1.0 to preserve loudness
-- Shape: `(1, 64, 188)` — 1 channel, 64 mel bins, 188 time frames
-- Normalized by global mean/std (stored in `feature_stats.json`)
+| Split | Safe | Unsafe | Total |
+|-------|------|--------|-------|
+| Train | 19,328 | 9,444 | 28,772 |
+| Val | 3,587 | 2,026 | 5,613 |
+| Test | 4,541 | 2,048 | 6,589 |
+
+Acted speech datasets (CREMA-D, SAVEE, TESS, RAVDESS) were dropped — acted emotions sound fundamentally different from real escalation (35-52% accuracy proved they damage the model).
+
+See `research/data_sources.md` for full citations and details.
 
 ---
 
-## Repository Structure
+## Deployment Personalization
 
+The base model detects threats universally. To adapt for a specific environment:
+
+```bash
+# Fine-tune for metro (freeze CNN, train GRU+FC only)
+PYTHONPATH=. python safecommute/pipeline/finetune.py \
+    --environment metro --ambient-dir raw_data/youtube_metro --freeze-cnn
+
+# Test deployment readiness
+PYTHONPATH=. python safecommute/pipeline/test_deployment.py \
+    --model models/metro_model.pth
 ```
-safecommute/                         # Everything lives here
-  model.py                           # SafeCommuteCNN architecture
-  constants.py                       # Shared constants (sample rate, mel bins, etc.)
-  features.py                        # Mel spectrogram extraction
-  dataset.py                         # TensorAudioDataset (loads .pt tensors)
-  utils.py                           # Seed everything for reproducibility
-  export.py                          # INT8, ONNX, TorchScript export
-  distill.py                         # PANNs knowledge distillation
-  domain_adversarial.py              # Domain-adversarial training
 
-  pipeline/                          # Data preparation, training, analysis
-    download_datasets.py             # Download all 9 datasets
-    data_pipeline.py                 # Prepare mel spectrograms from raw audio
-    prepare_youtube_data.py          # YouTube audio extraction (yt-dlp)
-    prepare_violence_data.py         # Violence dataset preparation
-    validate_youtube_data.py         # Automated data quality validation
-    train.py                         # Training (focal loss, augmentation, mixup)
-    analyze.py                       # Full analysis: ROC, calibration, per-source
-    inference.py                     # Live microphone inference
-
-  benchmark/                         # SOTA comparison benchmark suite
-    run_benchmark.py                 # Run all benchmarks
-    metrics.py                       # Evaluation metrics
-    profiler.py                      # Latency/memory profiling
-    models/                          # Wrappers for PANNs, AST, Wav2Vec2, etc.
-
-research/                            # Research experiments (sandboxed)
-  README.md                          # Results overview
-  NEXT_STEPS.md                      # Publication roadmap
-  literature_review.md               # 20-paper survey
-  experiment_log.md                  # All experiment results
-  robustness_report.md               # Overfitting/noise/calibration analysis
-  dataset_audit_report.md            # Data quality audit
-  experiments/                       # 15 experiment scripts
-
-demo.py                              # Quick 15-second live demo
-```
+This adapts the "safe" class boundary to the target acoustic environment in minutes.
 
 ---
 
@@ -162,11 +136,12 @@ python -m venv venv && source venv/bin/activate.fish
 pip install -r requirements.txt
 
 # Download and prepare data
-PYTHONPATH=. python safecommute/pipeline/download_datasets.py
-PYTHONPATH=. python safecommute/pipeline/data_pipeline.py
-PYTHONPATH=. python safecommute/pipeline/prepare_youtube_data.py
-PYTHONPATH=. python safecommute/pipeline/prepare_violence_data.py
-PYTHONPATH=. python safecommute/pipeline/validate_youtube_data.py
+PYTHONPATH=. python safecommute/pipeline/download_datasets.py    # ESC-50
+PYTHONPATH=. python safecommute/pipeline/download_audioset.py    # AudioSet
+PYTHONPATH=. python safecommute/pipeline/data_pipeline.py        # Prepare features
+PYTHONPATH=. python safecommute/pipeline/prepare_youtube_data.py # YouTube
+PYTHONPATH=. python safecommute/pipeline/prepare_violence_data.py # Violence
+PYTHONPATH=. python safecommute/pipeline/verify_pipeline.py      # Verify
 
 # Train
 PYTHONPATH=. python safecommute/pipeline/train.py --focal --cosine --strong-aug --gamma 3.0
@@ -175,42 +150,28 @@ PYTHONPATH=. python safecommute/pipeline/train.py --focal --cosine --strong-aug 
 PYTHONPATH=. python safecommute/pipeline/analyze.py
 
 # Live demo
-PYTHONPATH=. python demo.py
+PYTHONPATH=. python safecommute/pipeline/inference.py
 ```
 
 ---
 
 ## Research Summary
 
-12 experiments completed comparing our architecture against alternative techniques and SOTA baselines. Full details in `research/README.md`.
+### Ablation Study (v2)
 
-| Rank | Experiment | AUC | Accuracy | Params | Key Finding |
-|------|-----------|-----|----------|--------|-------------|
-| 1 | Knowledge Distillation | **0.954** | **76.4%** | 1.83M | Best AUC via self-distillation |
-| 2 | Baseline (production) | 0.950 | 74.5% | 1.83M | Current model |
-| 3 | Depthwise Separable | 0.944 | 75.0% | 819K | 55% fewer params |
-| 4 | SOTA: Audio ResNet | 0.929 | 76.1% | 816K | Higher acc, lower AUC |
-| 5 | SOTA: Simple CNN | 0.881 | 64.5% | 93K | Proves architecture matters |
+| Variant | AUC | Params | Delta |
+|---------|-----|--------|-------|
+| Full model | 0.827 | 1.83M | baseline |
+| No SE attention | 0.849 | 1.82M | +0.022 |
+| No GRU | 0.843 | 1.16M | +0.016 |
+| No multi-scale pool | 0.855 | 1.83M | +0.028 |
+| Half channels | 0.836 | 458K | +0.009 |
 
-**Our CNN6+SE+GRU outperforms ResNet, Transformer, BiLSTM, and Simple CNN** on this task.
+### LOSO Key Finding
 
-### Validation (in progress)
+When held out entirely from training: laughter (6% accuracy), crowd (11%), speech (20%) are near-completely misclassified. These are essential hard negatives. Threat sounds generalize well across sources (gunshot 90%, screaming 81%).
 
-| Test | Result | Status |
-|------|--------|--------|
-| 5-fold CV (source-aware) | AUC = 0.944 +/- 0.006 | **Done** |
-| Threshold optimization | Acc 74.5% -> 86.0% at t=0.622 | **Done** |
-| Ablation study | GRU most critical (-0.024 AUC without) | **Done** |
-| Leave-one-source-out | Mean AUC=0.767, YouTube=0.803 | **Done** |
-
-### Next Steps
-
-1. **Ablation study**: prove each component (SE, GRU, multi-scale pooling) contributes
-2. **LOSO evaluation**: train on 8 sources, test on held-out 1
-3. **Domain adaptation**: MMD loss or DANN for acted-to-real gap
-4. **Real-world validation**: test on actual public transport audio
-
-See `research/NEXT_STEPS.md` for the full roadmap.
+See `research/experiment_log.md` for full results.
 
 ---
 
