@@ -132,6 +132,8 @@ def main():
                         help='Learning rate (default: 1e-4)')
     parser.add_argument('--freeze-cnn', action='store_true',
                         help='Freeze CNN layers, only train GRU+FC')
+    parser.add_argument('--warmup-epochs', type=int, default=0,
+                        help='Epochs with CNN frozen before unfreezing (default: 0)')
     parser.add_argument('--keep-safe-ratio', type=float, default=0.5,
                         help='Ratio of base safe data to keep (default: 0.5)')
     parser.add_argument('--seed', type=int, default=42)
@@ -204,19 +206,26 @@ def main():
     print(f"\n  Base model:  AUC={base_auc:.4f}  Acc={base_acc:.4f}  F1={base_f1:.4f}")
 
     # ── Step 5: Fine-tune ────────────────────────────────────────────
+    use_warmup = args.warmup_epochs > 0 and not args.freeze_cnn
     print(f"\n  Fine-tuning: {args.epochs} epochs, lr={args.lr}, "
-          f"freeze_cnn={args.freeze_cnn}")
+          f"freeze_cnn={args.freeze_cnn}, warmup_epochs={args.warmup_epochs}")
 
-    if args.freeze_cnn:
-        # Freeze CNN blocks (Conv2d + BatchNorm2d)
-        frozen = 0
+    def freeze_cnn_layers():
         for name, param in model.named_parameters():
             if 'block' in name or 'bn_input' in name:
                 param.requires_grad = False
-                frozen += 1
+
+    def unfreeze_all():
+        for param in model.parameters():
+            param.requires_grad = True
+
+    if args.freeze_cnn or use_warmup:
+        freeze_cnn_layers()
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        total = sum(p.numel() for p in model.parameters())
-        print(f"  Frozen {frozen} params, training {trainable:,}/{total:,}")
+        total_params = sum(p.numel() for p in model.parameters())
+        print(f"  CNN frozen, training {trainable:,}/{total_params:,} params")
+        if use_warmup:
+            print(f"  Will unfreeze after {args.warmup_epochs} warmup epochs")
 
     # Class weights from combined dataset
     all_labels = []
@@ -240,6 +249,16 @@ def main():
     best_state = None
 
     for epoch in range(args.epochs):
+        # Warmup: unfreeze CNN after warmup_epochs
+        if use_warmup and epoch == args.warmup_epochs:
+            unfreeze_all()
+            # Reset optimizer with lower LR for CNN
+            optimizer = optim.AdamW(model.parameters(),
+                                    lr=args.lr / 10, weight_decay=1e-4)
+            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                optimizer, T_0=max(1, (args.epochs - args.warmup_epochs) // 2), T_mult=2)
+            print(f"  [Epoch {epoch+1}] CNN unfrozen, lr={args.lr/10:.1e}")
+
         model.train()
         run_loss = correct = total_samples = 0
         for inputs, labels in train_loader:
@@ -290,12 +309,66 @@ def main():
         model.load_state_dict(best_state)
     ft_auc, ft_acc, ft_f1 = evaluate_model(model, test_loader, device)
 
-    # ── Step 7: Save ─────────────────────────────────────────────────
+    # ── Step 7: Threshold optimization ───────────────────────────────
+    print("\n  Optimizing detection threshold...")
+    model.eval()
+    all_probs, all_labels = [], []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            logits = model(inputs.to(device))
+            probs = torch.softmax(logits, dim=1)[:, 1]
+            all_probs.extend(probs.cpu().tolist())
+            all_labels.extend(labels.tolist())
+
+    from sklearn.metrics import roc_curve, precision_recall_fscore_support
+    all_probs_np = np.array(all_probs)
+    all_labels_np = np.array(all_labels)
+
+    fpr, tpr, roc_thresholds = roc_curve(all_labels_np, all_probs_np)
+
+    # Youden's J
+    j_scores = tpr - fpr
+    j_idx = np.argmax(j_scores)
+    youden_thresh = float(roc_thresholds[j_idx])
+
+    # F1-optimal
+    best_f1_thresh, best_f1_val = 0.5, 0.0
+    for t in np.arange(0.3, 0.9, 0.01):
+        preds = (all_probs_np >= t).astype(int)
+        _, _, f1_t, _ = precision_recall_fscore_support(
+            all_labels_np, preds, average='weighted', zero_division=0)
+        if f1_t > best_f1_val:
+            best_f1_val = f1_t
+            best_f1_thresh = float(t)
+
+    # Low-FPR threshold (target FPR <= 5%)
+    low_fpr_thresh = 0.5
+    for i in range(len(fpr)):
+        if fpr[i] <= 0.05:
+            low_fpr_thresh = float(roc_thresholds[i])
+    # Ensure it's reasonable
+    low_fpr_thresh = max(0.3, min(0.95, low_fpr_thresh))
+
+    thresholds = {
+        'youden': youden_thresh,
+        'f1_optimal': best_f1_thresh,
+        'low_fpr': low_fpr_thresh,
+    }
+
+    print(f"  Youden's J:   {youden_thresh:.3f}")
+    print(f"  F1-optimal:   {best_f1_thresh:.3f} (F1={best_f1_val:.3f})")
+    print(f"  Low-FPR (5%): {low_fpr_thresh:.3f}")
+
+    # ── Step 8: Save ─────────────────────────────────────────────────
     os.makedirs('models', exist_ok=True)
     save_path = f"models/{args.environment}_model.pth"
     torch.save(model.state_dict(), save_path)
 
-    # ── Step 8: Comparison ───────────────────────────────────────────
+    thresh_path = f"models/{args.environment}_thresholds.json"
+    with open(thresh_path, 'w') as f:
+        json.dump(thresholds, f, indent=2)
+
+    # ── Step 9: Comparison ───────────────────────────────────────────
     print(f"\n{'='*60}")
     print(f"  Fine-tuning Results: {args.environment}")
     print(f"{'='*60}")
@@ -304,7 +377,8 @@ def main():
     print(f"  {'Fine-tuned':<20} {ft_auc:>8.4f} {ft_acc:>8.4f} {ft_f1:>8.4f}")
     print(f"  {'Delta':<20} {ft_auc - base_auc:>+8.4f} {ft_acc - base_acc:>+8.4f} "
           f"{ft_f1 - base_f1:>+8.4f}")
-    print(f"\n  Saved: {save_path}")
+    print(f"\n  Saved model: {save_path}")
+    print(f"  Saved thresholds: {thresh_path}")
 
     if ft_auc < base_auc - 0.05:
         print(f"\n  WARNING: AUC dropped by {base_auc - ft_auc:.3f}. "

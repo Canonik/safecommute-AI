@@ -15,4 +15,5 @@ panns_inference
 tabulate
 onnx
 onnxruntime
+onnxscript
 yt-dlp
