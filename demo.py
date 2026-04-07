@@ -134,18 +134,22 @@ def main():
     # Calibrate mic noise floor
     if not args.no_calibration:
         noise_rms, dc_offset = calibrate_mic(stream)
-        # Energy gate = 3x the noise floor (anything below is "silence")
-        # Event threshold = noise_rms * 5 (significant sound above background)
-        energy_gate = max(0.003, noise_rms * 3)
+        # Compute scale factor: map mic noise floor to standard quiet level
+        # After scaling, silence RMS ~ 0.005, so standard gate of 0.003 works
+        if noise_rms > 0.01:
+            mic_scale = 0.005 / noise_rms
+        else:
+            mic_scale = 1.0  # mic is already at a reasonable level
     else:
         noise_rms, dc_offset = 0.0, 0.0
-        energy_gate = 0.003
+        mic_scale = 1.0
+    energy_gate = 0.003  # standard gate, applied AFTER normalization
 
     if thresh_source:
         print(f"  Thresholds: amber={amber:.3f}, red={red:.3f} (from {thresh_source})")
     else:
         print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
-    print(f"  Energy gate: {energy_gate:.4f} (noise floor: {noise_rms:.4f})")
+    print(f"  Mic scale: {mic_scale:.4f} (noise floor: {noise_rms:.4f})")
     print(f"  Privacy: RAM only, no audio saved")
     print(f"{'='*58}\n")
 
@@ -159,8 +163,8 @@ def main():
             data = stream.read(CHUNK, exception_on_overflow=False)
             new = np.frombuffer(data, dtype=np.float32)
 
-            # Remove DC offset (common with high-gain mics)
-            new = new - dc_offset
+            # Remove DC offset and scale to standard level
+            new = (new - dc_offset) * mic_scale
 
             audio_buf = np.roll(audio_buf, -CHUNK)
             audio_buf[-CHUNK:] = new
@@ -169,23 +173,14 @@ def main():
             remaining = max(0, args.duration - (time.time() - start_time))
             t = time.strftime('%H:%M:%S')
 
-            # Energy gating: below calibrated noise floor = silence
+            # Energy gating on NORMALIZED audio
             if rms < energy_gate:
                 print(f"  [{t}]  SAFE    [--------------------] 0.00 (silent)  [{remaining:.0f}s]", end='\r')
-                history.clear()  # reset smoothing on silence
+                history.clear()
                 last_status = 'silent'
                 continue
 
-            # Normalize audio: remove noise floor contribution
-            # This ensures the model sees signal relative to background,
-            # not the absolute mic gain level
-            normalized = audio_buf.copy()
-            if noise_rms > 0.01:
-                # Scale so that noise_rms maps to a standard quiet level (0.005)
-                scale = 0.005 / noise_rms
-                normalized = normalized * scale
-
-            feat = preprocess(normalized, mean, std)
+            feat = preprocess(audio_buf, mean, std)
             with torch.no_grad():
                 prob = torch.softmax(model(feat), dim=1)[0][1].item()
 
