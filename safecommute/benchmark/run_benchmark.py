@@ -5,8 +5,8 @@ Evaluates SafeCommute against 5+ SOTA models on the same test set.
 Generates comparison tables, ROC curves, radar charts, and trade-off plots.
 
 Usage:
-    PYTHONPATH=. python v_3/benchmark/run_benchmark.py
-    PYTHONPATH=. python v_3/benchmark/run_benchmark.py --skip-heavy  # skip large models
+    PYTHONPATH=. python safecommute/benchmark/run_benchmark.py
+    PYTHONPATH=. python safecommute/benchmark/run_benchmark.py --skip-heavy  # skip large models
 """
 
 import argparse
@@ -362,7 +362,7 @@ def generate_visualizations(results, output_dir, test_size):
     print(f"  6 visualization plots saved to {output_dir}/")
 
 
-def run_benchmark(test_dir, skip_heavy=False, output_dir='v_3/benchmark/results'):
+def run_benchmark(test_dir, skip_heavy=False, output_dir='safecommute/benchmark/results'):
     os.makedirs(output_dir, exist_ok=True)
 
     # Load feature stats

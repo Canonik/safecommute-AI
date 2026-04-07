@@ -7,7 +7,6 @@ scipy
 pyaudio
 soundata
 pyroomacoustics
-huggingface_hub
 matplotlib
 scikit-learn
 pandas

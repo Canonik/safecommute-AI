@@ -674,7 +674,7 @@ The comparison table for the paper should be:
 | Energy baseline | 0 | 0 | <1ms | ? | ? | ? |
 
 Update research/experiment_log.md with both ablation and SOTA results.
-```
+```++++++
 
 ---
 

@@ -21,7 +21,8 @@ from safecommute.utils import seed_everything
 from research.experiments.eval_utils import (
     load_stats, get_train_val_loaders, full_evaluation, count_parameters
 )
-from safecommute.pipeline.train import FocalLoss, spec_augment_strong, mixup_batch, compute_class_weights
+from safecommute.pipeline.train import FocalLoss, mixup_batch, compute_class_weights
+import random
 
 BATCH_SIZE = 32
 EPOCHS = 25
@@ -149,10 +150,17 @@ def main():
 
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
-            aug_inputs = []
-            for i in range(inputs.size(0)):
-                aug_inputs.append(spec_augment_strong(inputs[i].cpu()).to(device))
-            inputs = torch.stack(aug_inputs)
+            B = inputs.size(0)
+            noise_mask = torch.rand(B, 1, 1, 1, device=inputs.device) < 0.3
+            inputs = inputs + noise_mask * torch.randn_like(inputs) * 0.1
+            for i in range(B):
+                if random.random() < 0.3:
+                    shift = random.randint(-20, 20)
+                    inputs[i] = torch.roll(inputs[i], shifts=shift, dims=-1)
+                if random.random() < 0.2:
+                    f_start = random.randint(0, 50)
+                    f_width = random.randint(3, 10)
+                    inputs[i, :, f_start:f_start + f_width, :] = 0
 
             if np.random.random() < MIXUP_PROB:
                 inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels)

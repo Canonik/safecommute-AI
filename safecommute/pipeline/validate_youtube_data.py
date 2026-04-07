@@ -11,8 +11,8 @@ Checks raw YouTube audio files for quality issues:
 Moves suspicious files to a quarantine directory for manual review.
 
 Usage:
-    PYTHONPATH=. python v_3/validate_youtube_data.py
-    PYTHONPATH=. python v_3/validate_youtube_data.py --delete  # auto-delete bad files
+    PYTHONPATH=. python safecommute/pipeline/validate_youtube_data.py
+    PYTHONPATH=. python safecommute/pipeline/validate_youtube_data.py --delete  # auto-delete bad files
 """
 
 import os
