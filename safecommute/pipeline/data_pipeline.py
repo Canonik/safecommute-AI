@@ -1,20 +1,34 @@
 """
 Data preparation pipeline for SafeCommute AI (v2).
 
-Processes raw audio into clean (un-augmented) mel spectrogram .pt tensors,
-split into train/val/test with NO data leakage.
+Converts raw audio from multiple sources into clean (un-augmented) log-mel
+spectrogram .pt tensors, organized into train/val/test splits with NO data
+leakage between splits.
 
-Sources:
-  - UrbanSound8K (safe): split by predefined folds (1-7/8/9-10)
-  - ESC-50 (safe): split by predefined folds (1-3/4/5)
-  - AudioSet threat + safe: split by sha256 hash of filename
-  - FSD50K threat + safe (fallback): split by sha256 hash of filename
+This script processes Layer 1 (universal threats from AudioSet) and Layer 2
+(universal hard negatives from AudioSet, ESC-50, UrbanSound8K). Layer 3
+(deployment-specific ambient) is handled separately by finetune.py.
+
+Sources and their splitting strategies:
+  - UrbanSound8K (safe, Layer 2): predefined folds 1-7/8/9-10 → train/val/test.
+    Using predefined folds respects the dataset authors' intent to avoid
+    location-based leakage (clips from the same street recording session).
+  - ESC-50 (safe, Layer 2): predefined folds 1-3/4/5 → train/val/test.
+    ESC-50 folds are stratified by category; using them prevents category
+    distribution skew across splits.
+  - AudioSet threat + safe (Layers 1+2): sha256 hash of filename.
+    No predefined folds exist, so we use deterministic hashing.
+  - FSD50K (fallback): sha256 hash, same rationale as AudioSet.
 
 Critical invariants:
-  - extract_features() produces clean spectrograms (no augment param)
-  - No mix_audio, no reverb, no SpecAugment during data preparation
-  - All augmentation happens at training time (see train.py / dataset.py)
-  - Splitting is deterministic and source-aware (no random per-sample splits)
+  - extract_features() produces CLEAN spectrograms — no augmentation parameter.
+  - No mix_audio, no reverb, no SpecAugment during data preparation.
+    Environmental mixing was tested in v1 and DROPPED because it degraded
+    generalization to unseen deployment environments.
+  - All augmentation happens at training time (see train.py / dataset.py).
+  - Splitting is deterministic and source-aware: all chunks from the same
+    source file go to the same split (prevents temporal leakage from overlapping
+    chunks landing in different splits).
 """
 
 import os
@@ -36,13 +50,19 @@ from safecommute.utils import seed_everything, sha256_split
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LABEL CONFIGS
+# LABEL CONFIGS — Layer 2 hard negatives (safe class)
 # ─────────────────────────────────────────────────────────────────────────────
-# UrbanSound8K categories → safe class
+# UrbanSound8K: background sounds and "hard negatives" — sounds that are loud
+# and abrupt but NOT threats. These teach the model to distinguish a car horn
+# or jackhammer (safe) from a gunshot (unsafe).
 SAFE_BG_LABELS = ['street_music', 'engine_idling', 'children_playing']
 HARD_NEG_LABELS = ['jackhammer', 'drilling', 'air_conditioner', 'car_horn']
 
-# ESC-50 categories → safe class
+# ESC-50: environmental sounds for the safe class. Hard negatives include
+# siren (excluded from AudioSet because it is a contextual confound —
+# sirens indicate response, not threat — but included from ESC-50 to ensure
+# the model does not false-alarm on siren-like sounds), fireworks, chainsaw,
+# etc. These are acoustically similar to threat sounds but are safe.
 ESC_SAFE_AMBIENT = [
     'rain', 'sea_waves', 'crackling_fire', 'crickets', 'chirping_birds',
     'water_drops', 'wind', 'pouring_water', 'toilet_flush', 'clock_alarm',
@@ -180,10 +200,12 @@ def process_esc50():
 def process_audioset_dir(base_dir, source_name):
     """
     Process AudioSet or FSD50K directory structure:
-      base_dir/threat/{category}/*.wav → unsafe (label=1)
-      base_dir/safe/{category}/*.wav   → safe   (label=0)
+      base_dir/threat/{category}/*.wav → unsafe (label=1)  [Layer 1]
+      base_dir/safe/{category}/*.wav   → safe   (label=0)  [Layer 2]
 
-    Split by sha256 hash of filename.
+    Split by sha256 hash of the SOURCE FILENAME (not chunk). This ensures
+    all chunks from the same 10-second AudioSet clip land in the same split,
+    preventing temporal leakage from overlapping 3-second windows.
     """
     safe_counts = {'train': 0, 'val': 0, 'test': 0}
     unsafe_counts = {'train': 0, 'val': 0, 'test': 0}
@@ -265,7 +287,14 @@ def process_fsd50k():
 # FEATURE STATS
 # ─────────────────────────────────────────────────────────────────────────────
 def compute_and_save_stats():
-    """Compute global mean/std from training set for normalization."""
+    """
+    Compute global mean/std from training set only for normalization.
+
+    Statistics are computed ONLY from training data to prevent information
+    leakage from val/test into the normalization parameters. These values
+    are saved to feature_stats.json and used by both the training DataLoader
+    and the real-time inference pipeline.
+    """
     print("\nComputing feature normalization statistics...")
     all_values = []
     for class_dir in ['0_safe', '1_unsafe']:

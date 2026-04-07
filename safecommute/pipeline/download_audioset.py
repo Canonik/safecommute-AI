@@ -30,6 +30,16 @@ from safecommute.constants import SAMPLE_RATE, RAW_DIR
 # ─────────────────────────────────────────────────────────────────────────────
 # CATEGORY DEFINITIONS
 # ─────────────────────────────────────────────────────────────────────────────
+# Layer 1 — Universal threat sounds. These categories were chosen because they
+# represent the core acoustic signatures of physical danger in public spaces.
+# EXCLUDED categories and rationale:
+#   - Siren (/m/03kmc9): contextual confound — sirens indicate emergency
+#     response, not an active threat. Including them causes the model to
+#     alert on police/ambulance presence, which is a false positive.
+#   - Crying/sobbing (/m/0463cq4): emotional distress, not physical threat.
+#     Crying is common in public transit (babies) and would cause false alarms.
+#   - Fighting (/m/07s0s5r): AudioSet's "Fighting" is a topic label with
+#     <20 strongly-labeled clips — too few for reliable training.
 THREAT_CATEGORIES = {
     "screaming":      "/m/03qc9zr",
     "shout":          "/m/07sr1lc",
@@ -39,6 +49,11 @@ THREAT_CATEGORIES = {
     "glass_breaking": "/m/07q0yl5",
 }
 
+# Layer 2 — Universal hard negatives (safe class). These are sounds that are
+# acoustically similar to threats (loud, abrupt, high-energy) but represent
+# normal public-space activity. Including them as safe training data forces
+# the model to learn fine-grained distinctions (e.g., cheering vs. screaming,
+# applause vs. gunshot reverb).
 SAFE_CATEGORIES = {
     "laughter":  "/m/01j3sz",
     "crowd":     "/m/03qtwd",
@@ -92,11 +107,17 @@ def parse_segments_for_categories(target_ids, max_per_category):
     """
     Parse all AudioSet segment CSVs and return clips matching target category IDs.
 
-    Returns: dict[category_id] -> list of (video_id, start_sec, end_sec)
+    AudioSet CSV format (after comment lines starting with #):
+      YTID, start_seconds, end_seconds, positive_labels
+    where positive_labels is a quoted comma-separated list of ontology MIDs
+    (e.g., "/m/03qc9zr,/m/07sr1lc"). Fields are separated by ", " (comma-space).
 
-    Streams unbalanced_train_segments.csv line-by-line to avoid loading ~100MB into RAM.
+    We parse all three segment files (eval, balanced_train, unbalanced_train)
+    in order. The unbalanced set is ~100MB so it is streamed line-by-line.
+    Early exit occurs once all categories reach max_per_category.
+
+    Returns: dict[category_mid] -> list of (video_id, start_sec, end_sec)
     """
-    # Invert: mid -> category_name for quick lookup
     target_set = set(target_ids.values())
     results = {mid: [] for mid in target_set}
     counts = {mid: 0 for mid in target_set}
@@ -149,7 +170,16 @@ def parse_segments_for_categories(target_ids, max_per_category):
 # AUDIO DOWNLOAD
 # ─────────────────────────────────────────────────────────────────────────────
 def download_clip(video_id, start, end, output_path, sleep_sec):
-    """Download a single audio clip segment via yt-dlp."""
+    """
+    Download a single AudioSet segment via yt-dlp.
+
+    Uses --download-sections to grab only the labeled time range (typically
+    10 seconds), converting on-the-fly to 16kHz mono WAV. The sleep between
+    downloads avoids YouTube rate-limiting.
+
+    Expect ~30-40% failure rate due to deleted/private/geo-blocked videos.
+    Failures are logged to failures.log for later analysis.
+    """
     if os.path.exists(output_path):
         return 'skipped'
 

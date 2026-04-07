@@ -2,12 +2,41 @@
 Fine-tune the base SafeCommute model for a specific deployment environment.
 
 The base model (trained on Layer 1 universal threats + Layer 2 hard negatives)
-is adapted to a target environment (metro, bar, bus) by adding Layer 3
-deployment-specific ambient audio to the safe class.
+is adapted to a target environment (metro, bar, bus) by injecting Layer 3
+deployment-specific ambient audio into the safe class.
 
-This is the key personalization step: threat sounds are universal, but what
-counts as "normal background" changes per deployment. Fine-tuning adapts the
-decision boundary without retraining from scratch.
+This is the key personalization step: threat sounds are universal (screams,
+gunshots, glass breaking sound the same everywhere), but what counts as
+"normal background" changes per deployment. A metro station has announcements,
+train braking sounds, and crowd noise that a bar does not. Fine-tuning shifts
+the safe-class decision boundary to encompass these environment-specific sounds
+without retraining the threat-detection capability from scratch.
+
+Catastrophic forgetting prevention strategy:
+  - The fine-tuning dataset combines ALL base unsafe samples (Layer 1) with a
+    SUBSET of base safe samples (Layer 2, controlled by --keep-safe-ratio)
+    plus the new ambient data (Layer 3). Keeping all unsafe samples ensures
+    the model does not "forget" what threats sound like.
+  - Optional CNN freezing (--freeze-cnn): locks the convolutional feature
+    extractor and only trains GRU + FC layers. This preserves learned spectral
+    features while adapting temporal/decision layers.
+  - Warmup strategy (--warmup-epochs): starts with CNN frozen for N epochs
+    (letting GRU/FC adapt to the new data distribution), then unfreezes CNN
+    with a 10x lower learning rate. This two-phase approach prevents early
+    gradient updates from destroying pretrained CNN filters.
+  - Lower learning rate (default 1e-4, vs 3e-4 for base training): smaller
+    updates preserve base model knowledge.
+  - Focal loss gamma=3.0 (vs 2.0 for base): more aggressive hard-example
+    focusing because the fine-tuning set is more imbalanced.
+
+Threshold optimization:
+  After fine-tuning, three detection thresholds are computed on the test set:
+    - Youden's J: maximizes (sensitivity + specificity - 1), balanced.
+    - F1-optimal: maximizes weighted F1-score, biased toward majority class.
+    - Low-FPR: highest threshold where FPR <= 5%, conservative for deployment
+      (minimizes false alarms at the cost of some missed detections).
+  The deployment typically uses the low-FPR threshold because false alarms
+  erode user trust faster than occasional missed detections.
 
 Usage:
     PYTHONPATH=. python safecommute/pipeline/finetune.py \\
@@ -92,7 +121,7 @@ def process_ambient_audio(ambient_dir, output_dir):
 
 
 def subsample_dataset(dataset, ratio):
-    """Return a Subset with a random fraction of the dataset."""
+    """Return a Subset with a random fraction of the dataset (unused but kept for API)."""
     n = len(dataset)
     k = max(1, int(n * ratio))
     indices = random.sample(range(n), k)
@@ -206,11 +235,17 @@ def main():
     print(f"\n  Base model:  AUC={base_auc:.4f}  Acc={base_acc:.4f}  F1={base_f1:.4f}")
 
     # ── Step 5: Fine-tune ────────────────────────────────────────────
+    # Warmup = start with CNN frozen, then unfreeze after N epochs.
+    # This two-phase approach lets the GRU/FC layers adapt to the new
+    # data distribution before allowing gradients to flow back into the
+    # CNN feature extractor, preventing catastrophic forgetting of
+    # learned spectral features.
     use_warmup = args.warmup_epochs > 0 and not args.freeze_cnn
     print(f"\n  Fine-tuning: {args.epochs} epochs, lr={args.lr}, "
           f"freeze_cnn={args.freeze_cnn}, warmup_epochs={args.warmup_epochs}")
 
     def freeze_cnn_layers():
+        """Freeze CNN blocks + input BN, keep GRU/freq_reduce/FC trainable."""
         for name, param in model.named_parameters():
             if 'block' in name or 'bn_input' in name:
                 param.requires_grad = False
@@ -237,6 +272,8 @@ def main():
     weights = [total / (2 * c) if c > 0 else 1.0 for c in counts]
     class_wts = torch.tensor(weights, dtype=torch.float32).to(device)
 
+    # Gamma=3.0 (vs 2.0 for base training) because fine-tuning datasets are
+    # typically more imbalanced — ambient samples outnumber threat samples.
     criterion = FocalLoss(alpha=class_wts, gamma=3.0,
                           label_smoothing=LABEL_SMOOTHING)
     optimizer = optim.AdamW(
@@ -249,10 +286,12 @@ def main():
     best_state = None
 
     for epoch in range(args.epochs):
-        # Warmup: unfreeze CNN after warmup_epochs
+        # Warmup phase transition: unfreeze CNN after warmup_epochs.
+        # The optimizer is RESET with 10x lower LR to prevent large gradient
+        # updates from destroying pretrained CNN filters. The scheduler is
+        # also reset to give the newly unfrozen layers a fresh cosine cycle.
         if use_warmup and epoch == args.warmup_epochs:
             unfreeze_all()
-            # Reset optimizer with lower LR for CNN
             optimizer = optim.AdamW(model.parameters(),
                                     lr=args.lr / 10, weight_decay=1e-4)
             scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
@@ -326,12 +365,14 @@ def main():
 
     fpr, tpr, roc_thresholds = roc_curve(all_labels_np, all_probs_np)
 
-    # Youden's J
+    # Youden's J statistic: threshold that maximizes (TPR - FPR).
+    # Gives a balanced operating point between sensitivity and specificity.
     j_scores = tpr - fpr
     j_idx = np.argmax(j_scores)
     youden_thresh = float(roc_thresholds[j_idx])
 
-    # F1-optimal
+    # F1-optimal: brute-force search over threshold grid.
+    # Weighted F1 accounts for class imbalance in the test set.
     best_f1_thresh, best_f1_val = 0.5, 0.0
     for t in np.arange(0.3, 0.9, 0.01):
         preds = (all_probs_np >= t).astype(int)
@@ -341,12 +382,15 @@ def main():
             best_f1_val = f1_t
             best_f1_thresh = float(t)
 
-    # Low-FPR threshold (target FPR <= 5%)
+    # Low-FPR threshold: the highest threshold where FPR stays <= 5%.
+    # This is the RECOMMENDED threshold for production deployment because
+    # false alarms (wrongly triggering an alert) erode user trust far more
+    # than occasional missed detections. Clamped to [0.3, 0.95] as a
+    # safety net against degenerate ROC curves.
     low_fpr_thresh = 0.5
     for i in range(len(fpr)):
         if fpr[i] <= 0.05:
             low_fpr_thresh = float(roc_thresholds[i])
-    # Ensure it's reasonable
     low_fpr_thresh = max(0.3, min(0.95, low_fpr_thresh))
 
     thresholds = {
@@ -380,6 +424,10 @@ def main():
     print(f"\n  Saved model: {save_path}")
     print(f"  Saved thresholds: {thresh_path}")
 
+    # Catastrophic forgetting guard: warn if threat detection AUC regressed
+    # significantly. A drop >0.05 suggests the model is forgetting what
+    # threats sound like. Remedies: --freeze-cnn, fewer epochs, or more
+    # base unsafe samples in the fine-tuning mix.
     if ft_auc < base_auc - 0.05:
         print(f"\n  WARNING: AUC dropped by {base_auc - ft_auc:.3f}. "
               f"Consider --freeze-cnn or fewer epochs.")

@@ -1,3 +1,38 @@
+"""
+Real-time inference engine for SafeCommute AI.
+
+Captures live audio from a microphone, runs the SafeCommuteCNN model on
+sliding 3-second windows, and displays a traffic-light status (green/amber/red).
+
+Privacy-preserving design (GDPR-compliant):
+  - Audio is kept in a RAM-only rolling buffer — never written to disk.
+  - Only non-reconstructible mel spectrograms are fed to the model.
+  - No raw audio, no spectrograms, and no model outputs are persisted.
+
+Signal processing pipeline:
+  1. Audio capture: 1-second chunks from PyAudio (16 kHz, float32, mono).
+  2. Rolling buffer: 3-second window updated by shifting 1 second at a time.
+     This gives 1-second response granularity with 3-second context.
+  3. Energy gating: if RMS < 0.003, skip inference entirely (auto-safe).
+     This avoids wasting CPU on silence and prevents the model from
+     producing spurious outputs on near-zero input (the model was not
+     trained on true digital silence and may produce arbitrary outputs).
+  4. Feature extraction: log-mel spectrogram via preprocess() from features.py.
+  5. Model inference: SafeCommuteCNN outputs softmax probability of "unsafe".
+  6. Temporal smoothing: moving average over SMOOTHING_WINDOW (4) consecutive
+     predictions. This reduces single-frame false positives — a brief cough
+     might spike one window but won't sustain across 4 seconds.
+  7. Dual thresholds: amber (warning) and red (alert) levels.
+     - Below amber: green (safe).
+     - Between amber and red: amber (elevated, monitoring).
+     - Above red: red (alert, potential escalation detected).
+     The dual-threshold design avoids binary flip-flopping and gives
+     operators time to assess before a full alert triggers.
+
+Usage:
+    PYTHONPATH=. python safecommute/pipeline/inference.py
+"""
+
 import collections
 import json
 import os
@@ -8,7 +43,6 @@ import numpy as np
 import pyaudio
 import torch
 
-# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.features import preprocess
@@ -21,13 +55,13 @@ from safecommute.constants import (
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-CONTEXT_WINDOW_SEC = 3
-STRIDE_SEC         = 1
-CHUNK_SIZE         = int(SAMPLE_RATE * STRIDE_SEC)
-BUFFER_SIZE        = int(SAMPLE_RATE * CONTEXT_WINDOW_SEC)
-SMOOTHING_WINDOW   = 4
-ENERGY_GATE_RMS    = 0.003
-PREFERRED_MIC      = None
+CONTEXT_WINDOW_SEC = 3       # Model input window — matches training duration
+STRIDE_SEC         = 1       # How often we run inference (response granularity)
+CHUNK_SIZE         = int(SAMPLE_RATE * STRIDE_SEC)     # 16000 samples per read
+BUFFER_SIZE        = int(SAMPLE_RATE * CONTEXT_WINDOW_SEC)  # 48000 rolling buffer
+SMOOTHING_WINDOW   = 4       # Moving average over 4 predictions (~4 seconds)
+ENERGY_GATE_RMS    = 0.003   # Below this RMS, audio is considered silence
+PREFERRED_MIC      = None    # Set to substring of mic name to auto-select
 
 
 # ─────────────────────────────────────────────────────────────────────────────

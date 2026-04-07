@@ -1,15 +1,26 @@
 """
 Model export and optimization for edge deployment.
 
+Produces three export formats targeting different deployment scenarios:
+  - INT8 dynamic quantization: ~30% size reduction with minimal accuracy loss.
+    Quantizes Linear and GRU weights (the largest parameter consumers) to 8-bit
+    integers. Dynamic quantization is chosen over static because it doesn't
+    require a calibration dataset and works well for models where activations
+    vary significantly (audio spectrograms have high dynamic range).
+  - ONNX (opset 17): Cross-framework interoperability. Enables deployment via
+    ONNX Runtime on non-PyTorch platforms (e.g., C++ edge devices, mobile).
+    Opset 17 is the minimum that supports all ops in our GRU + SE architecture.
+  - TorchScript (traced): For PyTorch-native deployment with JIT optimization.
+    Tracing is used instead of scripting because the model has no control flow.
+
+Conv2d and BatchNorm2d are NOT quantized — they account for a small fraction
+of parameters and quantizing them often hurts accuracy more than it saves space.
+
 Usage:
     python -m safecommute.export
 
-Produces:
-    safecommute_edge_model_int8.pth   — INT8 dynamically quantized
-    safecommute_edge_model.onnx       — ONNX format (opset 17)
-    safecommute_edge_model_scripted.pt — TorchScript traced
-
-Also benchmarks inference latency for each variant.
+Also benchmarks inference latency (mean, std, p99) for each variant to verify
+the <15ms CPU target is met.
 """
 
 import os
@@ -46,9 +57,16 @@ def measure_size_mb(model):
 
 
 def measure_latency(model, dummy_input, n_warmup=20, n_runs=200):
-    """Measure inference latency on CPU."""
+    """
+    Measure inference latency on CPU with warmup to exclude JIT compilation.
+
+    Reports mean, std, and p99 — the p99 is the critical metric for real-time
+    deployment since it determines worst-case response time. The target is
+    mean <15ms and p99 <30ms (see test_deployment.py).
+    """
     model.eval()
     with torch.no_grad():
+        # Warmup runs allow PyTorch to JIT-compile and cache kernel dispatches
         for _ in range(n_warmup):
             model(dummy_input)
 
@@ -62,7 +80,14 @@ def measure_latency(model, dummy_input, n_warmup=20, n_runs=200):
 
 
 def export_int8(model):
-    """INT8 dynamic quantization of Linear and GRU layers."""
+    """
+    INT8 dynamic quantization targeting Linear and GRU layers.
+
+    These two layer types hold >90% of the model's parameters (GRU: ~200K,
+    Linear freq_reduce + fc: ~550K). Conv2d layers are excluded because
+    they are already small (3x3 kernels) and quantizing them can distort
+    learned frequency-band filters critical for threat detection.
+    """
     print("\n── INT8 Dynamic Quantization ──")
     quantized = torch.quantization.quantize_dynamic(
         model, {nn.Linear, nn.GRU}, dtype=torch.qint8)

@@ -1,10 +1,22 @@
 """
 Process the HuggingFace violence detection dataset into training .pt tensors.
-Label 1 (violent) → unsafe, Label 0 (non-violent) → safe.
 
-Split is determined per SOURCE FILE (not per chunk) using sha256 hash
-to prevent data leakage. All chunks from the same file go to the same split.
-All spectrograms are saved clean (no augmentation).
+This dataset provides additional Layer 1 (unsafe) and Layer 2 (safe) samples
+from a violence detection context. Label mapping:
+  - Label 1 (violent) → unsafe (1_unsafe): physical altercation sounds
+  - Label 0 (non-violent) → safe (0_safe): non-violent interaction sounds
+
+The violence dataset is valuable because it contains real-world altercation
+audio that differs acoustically from isolated screams or gunshots — it
+includes overlapping voices, impacts, and crowd reactions that the model
+must learn to detect as a threat pattern.
+
+Filename convention: violence_IDX_LABEL.wav (e.g., violence_042_1.wav).
+The label is parsed from the third underscore-separated field.
+
+Chunking and splitting follow the same strategy as prepare_youtube_data.py:
+3-second windows with 50% overlap, sha256 hash on the source filename
+to prevent temporal leakage. All spectrograms are saved clean.
 """
 import os
 import sys

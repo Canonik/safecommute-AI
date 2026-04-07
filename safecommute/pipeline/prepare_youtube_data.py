@@ -1,11 +1,21 @@
 """
 Process YouTube audio into training-ready .pt tensors.
-Chunks long audio into 3-second windows with overlap.
-Metro ambient → safe class, screams → unsafe class.
 
-Split is determined per SOURCE FILE (not per chunk) using sha256 hash
-to prevent data leakage. All chunks from the same file go to the same split.
-All spectrograms are saved clean (no augmentation).
+YouTube data serves two roles in the three-layer data strategy:
+  - youtube_screams (Layer 1, unsafe): Real screams/shouts from YouTube
+    compilations. These supplement AudioSet threat categories with more
+    naturalistic, uncontrolled recordings (vs. AudioSet's 10-second segments).
+  - youtube_metro (Layer 2, safe): Metro station ambient recordings used as
+    hard negatives. Train announcements, braking sounds, and crowd noise
+    that could confuse a naive classifier.
+
+Chunking strategy: long recordings (often 5-30 minutes) are split into
+3-second windows with 50% overlap (1.5s hop). The overlap ensures every
+threat event is fully captured in at least one chunk. All chunks from
+the same source file are assigned to the same train/val/test split via
+sha256 hash to prevent temporal leakage (adjacent chunks share ~50% audio).
+
+All spectrograms are saved clean — no augmentation at prep time.
 """
 import os
 import sys

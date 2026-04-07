@@ -1,13 +1,34 @@
 """
 Training script for SafeCommute AI.
-Supports: focal loss, cosine annealing, batch GPU augmentation, mixup.
 
-Augmentation strategy:
-  - Base augmentation: SpecAugment (freq/time masking) in dataset.__getitem__
-    Applied per-sample, different every epoch. Always on for training.
-  - Strong augmentation (--strong-aug): batch-level GPU ops in training loop
-    Gaussian noise, circular time shift, frequency band dropout.
-    Applied on top of base augmentation for extra regularization.
+Trains the SafeCommuteCNN on Layer 1 (universal threats) + Layer 2 (hard
+negatives) data prepared by data_pipeline.py. The model learns a universal
+safe/unsafe boundary that can later be fine-tuned per deployment (finetune.py).
+
+Two-layer augmentation strategy (both operate on clean .pt spectrograms):
+  Layer 1 — Base augmentation (dataset.py __getitem__, always on):
+    SpecAugment frequency and time masking, 50% probability each.
+    Simulates partial occlusion of spectral features (e.g., a loud background
+    sound masking part of a scream). Lightweight, per-sample, CPU-side.
+
+  Layer 2 — Strong augmentation (--strong-aug flag, this file):
+    Batch-level GPU ops applied on top of base augmentation:
+      - Gaussian noise (30% of samples, sigma=0.1): simulates microphone noise
+      - Circular time shift (30%, +/-20 frames): simulates event timing jitter
+      - Frequency band dropout (20%, 3-10 bins): simulates missing freq bands
+    These are heavier transforms that benefit from GPU parallelism.
+
+Loss function choices:
+  - Focal loss (--focal): down-weights easy examples, focuses on hard ones.
+    Critical because most safe samples are trivially easy (silence, music),
+    while the boundary cases (laughter vs. screaming) are rare but important.
+  - Gamma parameter (--gamma): controls how aggressively easy examples are
+    down-weighted. Default 2.0; experiments showed gamma=3.0 helps when the
+    dataset is highly imbalanced (see experiment_log.md).
+  - Label smoothing (0.1): prevents overconfident predictions, improves
+    calibration of probability outputs used for threshold-based deployment.
+  - Mixup (alpha=0.3, 50% probability): interpolates pairs of training samples
+    and labels, acting as a regularizer that smooths the decision boundary.
 """
 import os
 import sys
@@ -28,20 +49,37 @@ from safecommute.dataset import TensorAudioDataset
 from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, THRESHOLDS_PATH
 from safecommute.utils import seed_everything, worker_init_fn
 
+# Training hyperparameters — tuned via grid search (see experiment_log.md)
 BATCH_SIZE = 32
 EPOCHS = 25
-LEARNING_RATE = 3e-4
-PATIENCE = 6
-LABEL_SMOOTHING = 0.1
-MIXUP_ALPHA = 0.3
-MIXUP_PROB = 0.5
+LEARNING_RATE = 3e-4       # AdamW default works well; higher LRs diverge with focal loss
+PATIENCE = 6               # Early stopping patience (epochs without val loss improvement)
+LABEL_SMOOTHING = 0.1      # Prevents overconfident logits, improves threshold calibration
+MIXUP_ALPHA = 0.3          # Beta distribution parameter for mixup interpolation weight
+MIXUP_PROB = 0.5           # Apply mixup to 50% of batches
 
 
 class FocalLoss(nn.Module):
-    """Focal loss for handling class imbalance and hard examples."""
+    """
+    Focal loss (Lin et al., 2017) for handling class imbalance and hard examples.
+
+    Standard cross-entropy treats all samples equally, but our dataset has many
+    trivially easy safe samples (silence, music) and fewer hard boundary cases
+    (laughter that sounds like screaming). Focal loss multiplies the CE loss by
+    (1 - p_t)^gamma, where p_t is the model's predicted probability for the
+    correct class. This down-weights easy examples (high p_t) and focuses
+    training on hard examples (low p_t).
+
+    Args:
+        alpha: Per-class weight tensor (inverse frequency weighting).
+        gamma: Focusing parameter. gamma=0 recovers standard CE. Higher gamma
+               focuses more aggressively on hard examples. We use 2.0 for base
+               training and 3.0 for fine-tuning (where class imbalance is worse).
+        label_smoothing: Soft target smoothing factor.
+    """
     def __init__(self, alpha=None, gamma=2.0, label_smoothing=0.0):
         super().__init__()
-        self.alpha = alpha  # class weights tensor
+        self.alpha = alpha
         self.gamma = gamma
         self.label_smoothing = label_smoothing
 
@@ -49,11 +87,20 @@ class FocalLoss(nn.Module):
         ce_loss = F.cross_entropy(inputs, targets, weight=self.alpha,
                                   reduction='none', label_smoothing=self.label_smoothing)
         pt = torch.exp(-ce_loss)
+        # (1 - pt)^gamma: easy examples (pt close to 1) get near-zero weight
         focal_loss = ((1 - pt) ** self.gamma) * ce_loss
         return focal_loss.mean()
 
 
 def mixup_batch(x, y, alpha=MIXUP_ALPHA):
+    """
+    Mixup augmentation (Zhang et al., 2018): linearly interpolate pairs of
+    training samples and their labels. The loss is computed as a weighted
+    combination of losses for both original labels.
+
+    Returns both label sets and the interpolation weight so the caller
+    can compute: loss = lam * loss(pred, y_a) + (1-lam) * loss(pred, y_b).
+    """
     lam = float(np.random.beta(alpha, alpha))
     idx = torch.randperm(x.size(0), device=x.device)
     x_m = lam * x + (1 - lam) * x[idx]
@@ -69,6 +116,13 @@ def load_stats():
 
 
 def compute_class_weights(dataset):
+    """
+    Compute inverse-frequency class weights for the loss function.
+
+    With typical data ratios of ~3:1 safe:unsafe, the unsafe class gets a
+    higher weight to prevent the model from achieving low loss by simply
+    predicting everything as safe.
+    """
     counts = [0, 0]
     for lbl in dataset.labels:
         counts[lbl] += 1
@@ -117,6 +171,10 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
 
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 
+    # Cosine annealing with warm restarts (T_0=5, T_mult=2) gives restart
+    # cycles at epochs 5, 15, 35... This periodically "reheats" the LR,
+    # helping escape local minima. Alternative: ReduceLROnPlateau for
+    # more conservative, loss-driven LR decay.
     if use_cosine:
         scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, T_0=5, T_mult=2)

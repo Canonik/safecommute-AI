@@ -1,13 +1,29 @@
 """
 Generate synthetic silence/quiet samples for SafeCommute AI.
 
-The model needs to learn that low-energy audio = safe. Without these,
-it defaults to unsafe for silence (safe prob = 0.28).
+Why silence matters: without explicit silent/quiet training data, the model
+has no examples of "no sound = safe" and defaults to predicting unsafe for
+low-energy input (measured at safe_prob = 0.28 without these samples). In
+production, microphones frequently capture near-silence (empty platforms,
+quiet bar hours), so the model MUST handle this correctly.
 
-Generates 1,500 synthetic safe-class samples:
-  - 500 pure silence (all zeros)
-  - 500 very quiet noise (RMS 0.0001-0.001)
-  - 500 low ambient noise (RMS 0.001-0.005)
+The energy gating in inference.py (RMS < 0.003 = auto-safe) provides a
+runtime safety net, but the model should also learn the correct behavior
+intrinsically for robustness.
+
+Generates 1,500 synthetic safe-class samples across three RMS tiers:
+  - 500 pure silence (RMS = 0.0): digital silence, all zeros. Tests the
+    extreme case of no microphone input.
+  - 500 very quiet noise (RMS 0.0001-0.001): sensor noise floor. Real
+    microphones never produce true silence — there is always thermal noise.
+    This range simulates that baseline.
+  - 500 low ambient noise (RMS 0.001-0.005): quiet room ambience. Just above
+    the energy gate threshold, so the model (not the gate) must classify it.
+    The upper bound (0.005) is chosen to slightly exceed ENERGY_GATE_RMS=0.003
+    to ensure smooth behavior near the gating boundary.
+
+Split is deterministic 70/15/15 by index (not sha256) because these are
+synthetic samples with no source-file identity to hash.
 
 Usage:
     PYTHONPATH=. python safecommute/pipeline/generate_silence_samples.py

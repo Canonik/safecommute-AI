@@ -1,10 +1,39 @@
 """
 Deployment acceptance test suite for SafeCommute AI.
 
-Validates that the model is deployment-ready by running 7 tests on
-real audio, latency, model size, consistency, and export verification.
+Validates that a model checkpoint is deployment-ready by running 7 tests.
+This is the final gate before shipping a model to production — ALL must-pass
+tests must pass, or the script exits with code 1.
 
-Run before shipping any model to production.
+Test suite and rationale:
+
+  1. Threat detection (must-pass): Runs sliding-window inference on real threat
+     audio files. Requires >= 90% detection rate. This is the fundamental
+     safety requirement — a deployed model that misses threats is useless.
+
+  2. False positive rate (must-pass): Runs on ambient audio files. Requires
+     <= 5% FP rate. False alarms erode operator trust and cause alert fatigue.
+     This threshold was chosen based on the "cry wolf" effect literature.
+
+  3. Latency (must-pass): Measures CPU inference time on dummy input.
+     Requires mean < 15ms, p99 < 30ms. The model must run faster than the
+     1-second stride in inference.py, with headroom for feature extraction.
+
+  4. Model size (must-pass): Checks that float32 <= 10MB, INT8 <= 6MB.
+     Edge devices (Raspberry Pi, Jetson Nano) have limited storage and
+     the model must fit in memory alongside the OS and application code.
+
+  5. Consistency (must-pass): Runs the same input 10 times and checks for
+     bitwise-identical outputs. Non-determinism in inference would cause
+     unpredictable alerting behavior in production.
+
+  6. Silence handling (must-pass): Verifies energy gating classifies silence
+     as safe. Matches the production inference.py behavior where RMS < 0.003
+     bypasses the model entirely.
+
+  7. ONNX verification (optional): Compares PyTorch and ONNX Runtime outputs.
+     Requires max difference < 0.01. Not must-pass because ONNX export is
+     optional for PyTorch-only deployments.
 
 Usage:
     PYTHONPATH=. python safecommute/pipeline/test_deployment.py
@@ -30,6 +59,7 @@ from safecommute.constants import (
     SAMPLE_RATE, N_MELS, TIME_FRAMES, MODEL_SAVE_PATH, STATS_PATH,
 )
 
+# These constants MUST match inference.py to ensure tests reflect production behavior
 CONTEXT_SEC = 3
 STRIDE_SEC = 1
 ENERGY_GATE_RMS = 0.003  # matches inference.py — below this = auto-safe
@@ -53,7 +83,13 @@ def load_model_and_stats(model_path):
 
 
 def sliding_window_inference(model, y, mean, std, threshold):
-    """Run sliding window inference on audio, return per-window probabilities."""
+    """
+    Run sliding window inference on audio, mirroring production inference.py.
+
+    Applies energy gating (RMS < 0.003 = auto-safe with prob 0.0) to match
+    real deployment behavior. Returns a list of unsafe probabilities, one per
+    1-second stride.
+    """
     chunk_len = int(SAMPLE_RATE * CONTEXT_SEC)
     stride_len = int(SAMPLE_RATE * STRIDE_SEC)
     probs = []
