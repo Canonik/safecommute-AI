@@ -132,7 +132,7 @@ def compute_class_weights(dataset):
 
 
 def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
-          save_path=None, seed=42):
+          label_smoothing=0.0, save_path=None, seed=42):
     seed_everything(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_path = save_path or MODEL_SAVE_PATH
@@ -164,10 +164,10 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
 
     if use_focal:
         criterion = FocalLoss(alpha=class_wts, gamma=gamma,
-                              label_smoothing=LABEL_SMOOTHING)
+                              label_smoothing=label_smoothing)
     else:
         criterion = nn.CrossEntropyLoss(weight=class_wts,
-                                        label_smoothing=LABEL_SMOOTHING)
+                                        label_smoothing=label_smoothing)
 
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 
@@ -295,8 +295,11 @@ if __name__ == "__main__":
     parser.add_argument('--cosine', action='store_true')
     parser.add_argument('--gamma', type=float, default=2.0)
     parser.add_argument('--strong-aug', action='store_true')
+    parser.add_argument('--label-smoothing', type=float, default=0.0,
+                        help='Label smoothing (default: 0.0, was 0.1 in v1)')
     parser.add_argument('--save', type=str, default=None)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
     train(use_focal=args.focal, use_cosine=args.cosine, use_strong_aug=args.strong_aug,
-          gamma=args.gamma, save_path=args.save, seed=args.seed)
+          gamma=args.gamma, label_smoothing=args.label_smoothing,
+          save_path=args.save, seed=args.seed)
