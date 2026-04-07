@@ -1,17 +1,32 @@
 #!/usr/bin/env python3
 """
-SafeCommute AI — Quick Demo
+SafeCommute AI — Live Demo
 
-Records 10 seconds from your microphone and classifies each 3-second
-window as Safe/Warning/Alert. No audio is saved to disk.
+Records from your microphone and classifies each 3-second window as
+Safe/Warning/Alert in real-time. No audio is saved to disk.
+
+The demo mirrors production inference behavior:
+  - Energy gating: silence (RMS < 0.003) is auto-classified as safe
+  - Smoothing: 4-prediction moving average to reduce jitter
+  - Dual thresholds: amber (warning) and red (alert) levels
+
+By default uses the base model at default thresholds (0.5). For accurate
+results, use a fine-tuned model with optimized thresholds:
+
+    PYTHONPATH=. python demo.py --model models/metro_model.pth \\
+                                --thresholds models/metro_thresholds.json
 
 Usage:
-    PYTHONPATH=. python demo.py
+    PYTHONPATH=. python demo.py                           # base model
+    PYTHONPATH=. python demo.py --model models/metro_model.pth  # fine-tuned
+    PYTHONPATH=. python demo.py --duration 30             # 30 seconds
 """
 
 import sys
 import os
+import json
 import time
+import argparse
 import collections
 import numpy as np
 
@@ -23,38 +38,69 @@ from safecommute.model import SafeCommuteCNN
 from safecommute.features import preprocess
 from safecommute.constants import SAMPLE_RATE, MODEL_SAVE_PATH, STATS_PATH
 
-# Config
-DURATION = 50          # seconds to record
+# Inference constants — match inference.py production behavior
 WINDOW_SEC = 3
 STRIDE_SEC = 1
 CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
-SMOOTHING = 3
+SMOOTHING = 4            # 4-prediction moving average (~4s of context)
+ENERGY_GATE_RMS = 0.003  # below this = silence = auto-safe
+
+
+def load_thresholds(thresholds_path):
+    """Load optimized thresholds from JSON, or return defaults."""
+    if thresholds_path and os.path.exists(thresholds_path):
+        with open(thresholds_path) as f:
+            t = json.load(f)
+        # Use Youden's J as amber, low-FPR as red
+        amber = t.get('youden', 0.50)
+        red = t.get('low_fpr', 0.70)
+        return amber, red, thresholds_path
+    return 0.50, 0.70, None
+
 
 def main():
+    parser = argparse.ArgumentParser(description='SafeCommute AI — Live Demo')
+    parser.add_argument('--model', type=str, default=MODEL_SAVE_PATH,
+                        help='Model checkpoint (default: safecommute_edge_model.pth)')
+    parser.add_argument('--thresholds', type=str, default=None,
+                        help='Optimized thresholds JSON (from finetune.py)')
+    parser.add_argument('--duration', type=int, default=60,
+                        help='Recording duration in seconds (default: 60)')
+    args = parser.parse_args()
+
+    # Auto-detect threshold file if model is in models/ directory
+    if args.thresholds is None and args.model.startswith('models/'):
+        env = os.path.basename(args.model).replace('_model.pth', '')
+        candidate = f'models/{env}_thresholds.json'
+        if os.path.exists(candidate):
+            args.thresholds = candidate
+
     # Load model
-    if not os.path.exists(MODEL_SAVE_PATH):
-        print(f"Error: {MODEL_SAVE_PATH} not found. Train first.")
+    if not os.path.exists(args.model):
+        print(f"Error: {args.model} not found. Train first.")
         sys.exit(1)
 
     model = SafeCommuteCNN()
-    model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location='cpu', weights_only=True))
+    model.load_state_dict(torch.load(args.model, map_location='cpu', weights_only=True))
     model.eval()
 
     # Load stats
     mean, std = 0.0, 1.0
     if os.path.exists(STATS_PATH):
-        import json
         with open(STATS_PATH) as f:
             s = json.load(f)
         mean, std = s['mean'], s['std']
+
+    # Load thresholds
+    amber, red, thresh_source = load_thresholds(args.thresholds)
 
     # Open mic
     p = pyaudio.PyAudio()
     try:
         info = p.get_default_input_device_info()
-        print(f"Mic: {info['name']}")
-    except:
+        mic_name = info['name']
+    except Exception:
         print("Error: No microphone found.")
         p.terminate()
         sys.exit(1)
@@ -62,28 +108,37 @@ def main():
     stream = p.open(format=pyaudio.paFloat32, channels=1, rate=SAMPLE_RATE,
                     input=True, frames_per_buffer=CHUNK)
 
-    print(f"\n{'='*50}")
-    print(f"  SafeCommute AI — Live Demo ({DURATION}s)")
-    print(f"  Model: 1.83M params, 7MB, ~9ms inference")
+    print(f"\n{'='*58}")
+    print(f"  SafeCommute AI — Live Demo ({args.duration}s)")
+    print(f"  Model: {os.path.basename(args.model)} (1.83M params, ~7ms)")
+    print(f"  Mic: {mic_name}")
+    if thresh_source:
+        print(f"  Thresholds: amber={amber:.3f}, red={red:.3f} (from {thresh_source})")
+    else:
+        print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
     print(f"  Privacy: RAM only, no audio saved")
-    print(f"{'='*50}\n")
+    print(f"{'='*58}\n")
 
     audio_buf = np.zeros(BUFFER, dtype=np.float32)
     history = collections.deque(maxlen=SMOOTHING)
-    start = time.time()
+    start_time = time.time()
+    last_status = None
 
     try:
-        while time.time() - start < DURATION:
+        while time.time() - start_time < args.duration:
             data = stream.read(CHUNK, exception_on_overflow=False)
             new = np.frombuffer(data, dtype=np.float32)
             audio_buf = np.roll(audio_buf, -CHUNK)
             audio_buf[-CHUNK:] = new
 
             rms = float(np.sqrt(np.mean(audio_buf ** 2)))
-            if rms < 0.003:
-                t = time.strftime('%H:%M:%S')
-                remaining = max(0, DURATION - (time.time() - start))
-                print(f"  [{t}]  SILENT  (RMS={rms:.4f})  [{remaining:.0f}s left]", end='\r')
+            remaining = max(0, args.duration - (time.time() - start_time))
+            t = time.strftime('%H:%M:%S')
+
+            # Energy gating: silence = auto-safe (matches production inference.py)
+            if rms < ENERGY_GATE_RMS:
+                print(f"  [{t}]  SILENT  (RMS={rms:.4f})  [{remaining:.0f}s left]     ", end='\r')
+                last_status = 'silent'
                 continue
 
             feat = preprocess(audio_buf, mean, std)
@@ -93,16 +148,21 @@ def main():
             history.append(prob)
             smoothed = float(np.mean(history))
 
-            t = time.strftime('%H:%M:%S')
-            bar = '█' * int(smoothed * 20) + '░' * (20 - int(smoothed * 20))
-            remaining = max(0, DURATION - (time.time() - start))
+            bar = '#' * int(smoothed * 20) + '-' * (20 - int(smoothed * 20))
 
-            if smoothed >= 0.7:
-                print(f"\n  [{t}]  🔴 ALERT   [{bar}] {smoothed:.2f}  ⚠️  ESCALATION")
-            elif smoothed >= 0.4:
-                print(f"  [{t}]  🟠 WARNING [{bar}] {smoothed:.2f}  [{remaining:.0f}s]", end='\r')
+            if smoothed >= red:
+                if last_status != 'red':
+                    print()  # newline before alert
+                print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f})  ESCALATION")
+                last_status = 'red'
+            elif smoothed >= amber:
+                print(f"  [{t}]  WARNING [{bar}] {smoothed:.2f} (raw={prob:.2f})  [{remaining:.0f}s]", end='\r')
+                last_status = 'amber'
             else:
-                print(f"  [{t}]  🟢 SAFE    [{bar}] {smoothed:.2f}  [{remaining:.0f}s]", end='\r')
+                print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f})  [{remaining:.0f}s]", end='\r')
+                if last_status == 'red':
+                    print()  # newline after alert clears
+                last_status = 'safe'
 
     except KeyboardInterrupt:
         pass
