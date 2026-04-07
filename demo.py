@@ -5,21 +5,13 @@ SafeCommute AI — Live Demo
 Records from your microphone and classifies each 3-second window as
 Safe/Warning/Alert in real-time. No audio is saved to disk.
 
-The demo mirrors production inference behavior:
-  - Energy gating: silence (RMS < 0.003) is auto-classified as safe
-  - Smoothing: 4-prediction moving average to reduce jitter
-  - Dual thresholds: amber (warning) and red (alert) levels
-
-By default uses the base model at default thresholds (0.5). For accurate
-results, use a fine-tuned model with optimized thresholds:
-
-    PYTHONPATH=. python demo.py --model models/metro_model.pth \\
-                                --thresholds models/metro_thresholds.json
+Includes automatic mic calibration: records 2 seconds of ambient noise
+at startup to measure the noise floor, then uses this as the baseline.
+This handles high-gain mics that output RMS=0.3 even in a silent room.
 
 Usage:
-    PYTHONPATH=. python demo.py                           # base model
-    PYTHONPATH=. python demo.py --model models/metro_model.pth  # fine-tuned
-    PYTHONPATH=. python demo.py --duration 30             # 30 seconds
+    PYTHONPATH=. python demo.py
+    PYTHONPATH=. python demo.py --model models/metro_model.pth
 """
 
 import sys
@@ -38,38 +30,65 @@ from safecommute.model import SafeCommuteCNN
 from safecommute.features import preprocess
 from safecommute.constants import SAMPLE_RATE, MODEL_SAVE_PATH, STATS_PATH
 
-# Inference constants — match inference.py production behavior
 WINDOW_SEC = 3
 STRIDE_SEC = 1
 CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
-SMOOTHING = 4            # 4-prediction moving average (~4s of context)
-ENERGY_GATE_RMS = 0.003  # below this = silence = auto-safe
+SMOOTHING = 4
 
 
 def load_thresholds(thresholds_path):
-    """Load optimized thresholds from JSON, or return defaults."""
     if thresholds_path and os.path.exists(thresholds_path):
         with open(thresholds_path) as f:
             t = json.load(f)
-        # Use Youden's J as amber, low-FPR as red
         amber = t.get('youden', 0.50)
         red = t.get('low_fpr', 0.70)
         return amber, red, thresholds_path
     return 0.50, 0.70, None
 
 
+def calibrate_mic(stream, duration=2):
+    """
+    Record ambient noise for `duration` seconds to measure mic noise floor.
+
+    Many mics (especially laptop internals) have very high gain, producing
+    RMS=0.3+ even in silence. We measure this baseline and use it to:
+    1. Set the energy gate above the noise floor
+    2. Normalize audio by subtracting the DC offset
+
+    Returns (noise_rms, dc_offset).
+    """
+    print(f"  Calibrating mic ({duration}s of silence)...", end='', flush=True)
+    frames = []
+    for _ in range(int(SAMPLE_RATE * duration / CHUNK)):
+        data = stream.read(CHUNK, exception_on_overflow=False)
+        frames.append(np.frombuffer(data, dtype=np.float32))
+
+    audio = np.concatenate(frames)
+    noise_rms = float(np.sqrt(np.mean(audio ** 2)))
+    dc_offset = float(np.mean(audio))
+    peak = float(np.max(np.abs(audio)))
+
+    print(f" RMS={noise_rms:.4f}, peak={peak:.4f}")
+
+    if noise_rms > 0.1:
+        print(f"  WARNING: Mic noise floor is very high (RMS={noise_rms:.3f}).")
+        print(f"  Consider lowering mic gain in your OS audio settings.")
+        print(f"  Compensating automatically...")
+
+    return noise_rms, dc_offset
+
+
 def main():
     parser = argparse.ArgumentParser(description='SafeCommute AI — Live Demo')
-    parser.add_argument('--model', type=str, default=MODEL_SAVE_PATH,
-                        help='Model checkpoint (default: safecommute_edge_model.pth)')
-    parser.add_argument('--thresholds', type=str, default=None,
-                        help='Optimized thresholds JSON (from finetune.py)')
-    parser.add_argument('--duration', type=int, default=60,
-                        help='Recording duration in seconds (default: 60)')
+    parser.add_argument('--model', type=str, default=MODEL_SAVE_PATH)
+    parser.add_argument('--thresholds', type=str, default=None)
+    parser.add_argument('--duration', type=int, default=60)
+    parser.add_argument('--no-calibration', action='store_true',
+                        help='Skip mic calibration (use fixed energy gate)')
     args = parser.parse_args()
 
-    # Auto-detect threshold file if model is in models/ directory
+    # Auto-detect threshold file
     if args.thresholds is None and args.model.startswith('models/'):
         env = os.path.basename(args.model).replace('_model.pth', '')
         candidate = f'models/{env}_thresholds.json'
@@ -78,7 +97,7 @@ def main():
 
     # Load model
     if not os.path.exists(args.model):
-        print(f"Error: {args.model} not found. Train first.")
+        print(f"Error: {args.model} not found.")
         sys.exit(1)
 
     model = SafeCommuteCNN()
@@ -92,7 +111,6 @@ def main():
             s = json.load(f)
         mean, std = s['mean'], s['std']
 
-    # Load thresholds
     amber, red, thresh_source = load_thresholds(args.thresholds)
 
     # Open mic
@@ -110,12 +128,24 @@ def main():
 
     print(f"\n{'='*58}")
     print(f"  SafeCommute AI — Live Demo ({args.duration}s)")
-    print(f"  Model: {os.path.basename(args.model)} (1.83M params, ~7ms)")
+    print(f"  Model: {os.path.basename(args.model)}")
     print(f"  Mic: {mic_name}")
+
+    # Calibrate mic noise floor
+    if not args.no_calibration:
+        noise_rms, dc_offset = calibrate_mic(stream)
+        # Energy gate = 3x the noise floor (anything below is "silence")
+        # Event threshold = noise_rms * 5 (significant sound above background)
+        energy_gate = max(0.003, noise_rms * 3)
+    else:
+        noise_rms, dc_offset = 0.0, 0.0
+        energy_gate = 0.003
+
     if thresh_source:
         print(f"  Thresholds: amber={amber:.3f}, red={red:.3f} (from {thresh_source})")
     else:
         print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
+    print(f"  Energy gate: {energy_gate:.4f} (noise floor: {noise_rms:.4f})")
     print(f"  Privacy: RAM only, no audio saved")
     print(f"{'='*58}\n")
 
@@ -128,6 +158,10 @@ def main():
         while time.time() - start_time < args.duration:
             data = stream.read(CHUNK, exception_on_overflow=False)
             new = np.frombuffer(data, dtype=np.float32)
+
+            # Remove DC offset (common with high-gain mics)
+            new = new - dc_offset
+
             audio_buf = np.roll(audio_buf, -CHUNK)
             audio_buf[-CHUNK:] = new
 
@@ -135,13 +169,23 @@ def main():
             remaining = max(0, args.duration - (time.time() - start_time))
             t = time.strftime('%H:%M:%S')
 
-            # Energy gating: silence = auto-safe (matches production inference.py)
-            if rms < ENERGY_GATE_RMS:
-                print(f"  [{t}]  SILENT  (RMS={rms:.4f})  [{remaining:.0f}s left]     ", end='\r')
+            # Energy gating: below calibrated noise floor = silence
+            if rms < energy_gate:
+                print(f"  [{t}]  SAFE    [--------------------] 0.00 (silent)  [{remaining:.0f}s]", end='\r')
+                history.clear()  # reset smoothing on silence
                 last_status = 'silent'
                 continue
 
-            feat = preprocess(audio_buf, mean, std)
+            # Normalize audio: remove noise floor contribution
+            # This ensures the model sees signal relative to background,
+            # not the absolute mic gain level
+            normalized = audio_buf.copy()
+            if noise_rms > 0.01:
+                # Scale so that noise_rms maps to a standard quiet level (0.005)
+                scale = 0.005 / noise_rms
+                normalized = normalized * scale
+
+            feat = preprocess(normalized, mean, std)
             with torch.no_grad():
                 prob = torch.softmax(model(feat), dim=1)[0][1].item()
 
@@ -152,7 +196,7 @@ def main():
 
             if smoothed >= red:
                 if last_status != 'red':
-                    print()  # newline before alert
+                    print()
                 print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f})  ESCALATION")
                 last_status = 'red'
             elif smoothed >= amber:
@@ -161,7 +205,7 @@ def main():
             else:
                 print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f})  [{remaining:.0f}s]", end='\r')
                 if last_status == 'red':
-                    print()  # newline after alert clears
+                    print()
                 last_status = 'safe'
 
     except KeyboardInterrupt:
