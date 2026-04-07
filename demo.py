@@ -5,9 +5,8 @@ SafeCommute AI — Live Demo
 Records from your microphone and classifies each 3-second window as
 Safe/Warning/Alert in real-time. No audio is saved to disk.
 
-Includes automatic mic calibration: records 2 seconds of ambient noise
-at startup to measure the noise floor, then uses this as the baseline.
-This handles high-gain mics that output RMS=0.3 even in a silent room.
+Uses PCEN (Per-Channel Energy Normalization) for gain-invariant features.
+No mic calibration needed — PCEN adapts to any microphone gain level.
 
 Usage:
     PYTHONPATH=. python demo.py
@@ -35,6 +34,7 @@ STRIDE_SEC = 1
 CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
 SMOOTHING = 4
+ENERGY_GATE_RMS = 0.003
 
 
 def load_thresholds(thresholds_path):
@@ -47,45 +47,11 @@ def load_thresholds(thresholds_path):
     return 0.50, 0.70, None
 
 
-def calibrate_mic(stream, duration=2):
-    """
-    Record ambient noise for `duration` seconds to measure mic noise floor.
-
-    Many mics (especially laptop internals) have very high gain, producing
-    RMS=0.3+ even in silence. We measure this baseline and use it to:
-    1. Set the energy gate above the noise floor
-    2. Normalize audio by subtracting the DC offset
-
-    Returns (noise_rms, dc_offset).
-    """
-    print(f"  Calibrating mic ({duration}s of silence)...", end='', flush=True)
-    frames = []
-    for _ in range(int(SAMPLE_RATE * duration / CHUNK)):
-        data = stream.read(CHUNK, exception_on_overflow=False)
-        frames.append(np.frombuffer(data, dtype=np.float32))
-
-    audio = np.concatenate(frames)
-    noise_rms = float(np.sqrt(np.mean(audio ** 2)))
-    dc_offset = float(np.mean(audio))
-    peak = float(np.max(np.abs(audio)))
-
-    print(f" RMS={noise_rms:.4f}, peak={peak:.4f}")
-
-    if noise_rms > 0.1:
-        print(f"  WARNING: Mic noise floor is very high (RMS={noise_rms:.3f}).")
-        print(f"  Consider lowering mic gain in your OS audio settings.")
-        print(f"  Compensating automatically...")
-
-    return noise_rms, dc_offset
-
-
 def main():
     parser = argparse.ArgumentParser(description='SafeCommute AI — Live Demo')
     parser.add_argument('--model', type=str, default=MODEL_SAVE_PATH)
     parser.add_argument('--thresholds', type=str, default=None)
     parser.add_argument('--duration', type=int, default=60)
-    parser.add_argument('--no-calibration', action='store_true',
-                        help='Skip mic calibration (use fixed energy gate)')
     args = parser.parse_args()
 
     # Auto-detect threshold file
@@ -95,7 +61,6 @@ def main():
         if os.path.exists(candidate):
             args.thresholds = candidate
 
-    # Load model
     if not os.path.exists(args.model):
         print(f"Error: {args.model} not found.")
         sys.exit(1)
@@ -104,7 +69,6 @@ def main():
     model.load_state_dict(torch.load(args.model, map_location='cpu', weights_only=True))
     model.eval()
 
-    # Load stats
     mean, std = 0.0, 1.0
     if os.path.exists(STATS_PATH):
         with open(STATS_PATH) as f:
@@ -113,7 +77,6 @@ def main():
 
     amber, red, thresh_source = load_thresholds(args.thresholds)
 
-    # Open mic
     p = pyaudio.PyAudio()
     try:
         info = p.get_default_input_device_info()
@@ -130,26 +93,11 @@ def main():
     print(f"  SafeCommute AI — Live Demo ({args.duration}s)")
     print(f"  Model: {os.path.basename(args.model)}")
     print(f"  Mic: {mic_name}")
-
-    # Calibrate mic noise floor
-    if not args.no_calibration:
-        noise_rms, dc_offset = calibrate_mic(stream)
-        # Compute scale factor: map mic noise floor to standard quiet level
-        # After scaling, silence RMS ~ 0.005, so standard gate of 0.003 works
-        if noise_rms > 0.01:
-            mic_scale = 0.005 / noise_rms
-        else:
-            mic_scale = 1.0  # mic is already at a reasonable level
-    else:
-        noise_rms, dc_offset = 0.0, 0.0
-        mic_scale = 1.0
-    energy_gate = 0.003  # standard gate, applied AFTER normalization
-
+    print(f"  Features: PCEN (gain-invariant, no mic calibration needed)")
     if thresh_source:
         print(f"  Thresholds: amber={amber:.3f}, red={red:.3f} (from {thresh_source})")
     else:
         print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
-    print(f"  Mic scale: {mic_scale:.4f} (noise floor: {noise_rms:.4f})")
     print(f"  Privacy: RAM only, no audio saved")
     print(f"{'='*58}\n")
 
@@ -162,10 +110,6 @@ def main():
         while time.time() - start_time < args.duration:
             data = stream.read(CHUNK, exception_on_overflow=False)
             new = np.frombuffer(data, dtype=np.float32)
-
-            # Remove DC offset and scale to standard level
-            new = (new - dc_offset) * mic_scale
-
             audio_buf = np.roll(audio_buf, -CHUNK)
             audio_buf[-CHUNK:] = new
 
@@ -173,13 +117,14 @@ def main():
             remaining = max(0, args.duration - (time.time() - start_time))
             t = time.strftime('%H:%M:%S')
 
-            # Energy gating on NORMALIZED audio
-            if rms < energy_gate:
+            # Energy gating on raw audio — silence = auto-safe
+            if rms < ENERGY_GATE_RMS:
                 print(f"  [{t}]  SAFE    [--------------------] 0.00 (silent)  [{remaining:.0f}s]", end='\r')
                 history.clear()
                 last_status = 'silent'
                 continue
 
+            # PCEN handles gain normalization — no mic_scale needed
             feat = preprocess(audio_buf, mean, std)
             with torch.no_grad():
                 prob = torch.softmax(model(feat), dim=1)[0][1].item()

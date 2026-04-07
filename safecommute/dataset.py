@@ -86,12 +86,16 @@ class TensorAudioDataset(Dataset):
         # Normalize using global training-set statistics
         features = (features - self.mean) / (self.std + 1e-8)
 
-        # Training-time augmentation: SpecAugment with 50% per-transform probability.
-        # IMPORTANT: uses torch.rand (not random.random or np.random) because
-        # PyTorch DataLoader workers are forked processes that inherit the SAME
-        # Python/numpy random state. torch.rand is seeded per-worker via
-        # worker_init_fn (see utils.py), so each worker produces unique augmentations.
+        # Training-time augmentation (uses torch.rand for DataLoader worker safety):
         if self.augment:
+            # Gain augmentation: random ±10 shift in spectrogram domain.
+            # Simulates different mic gains / recording distances. With PCEN
+            # features this provides additional robustness beyond PCEN's own
+            # adaptive gain control.
+            gain_shift = (torch.rand(1).item() - 0.5) * 20  # uniform [-10, +10]
+            features = features + gain_shift
+
+            # SpecAugment: frequency and time masking
             if torch.rand(1).item() < 0.5:
                 features = self.freq_mask(features)
             if torch.rand(1).item() < 0.5:
