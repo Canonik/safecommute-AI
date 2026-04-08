@@ -36,7 +36,7 @@ DATA_DIR = "prepared_data"
 RAW_DIR = "raw_data"
 STATS_PATH = "feature_stats.json"
 THRESHOLDS_PATH = "thresholds.json"
-MODEL_SAVE_PATH = "safecommute_edge_model.pth"
+MODEL_SAVE_PATH = "models/safecommute_v2.pth"
 
 # Reproducibility
 SEED = 42
