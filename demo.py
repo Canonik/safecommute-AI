@@ -141,6 +141,23 @@ def main():
     start_time = time.time()
     last_status = None
 
+    # ── Auto-calibrate: measure ambient baseline for 3 seconds ────────
+    print("  Calibrating ambient baseline (3s — stay quiet)...")
+    cal_probs = []
+    for _ in range(3):
+        data = stream.read(CHUNK, exception_on_overflow=False)
+        new = np.frombuffer(data, dtype=np.float32)
+        audio_buf = np.roll(audio_buf, -CHUNK)
+        audio_buf[-CHUNK:] = new
+        rms = float(np.sqrt(np.mean(audio_buf ** 2)))
+        if rms >= ENERGY_GATE_RMS:
+            feat = preprocess(audio_buf, mean, std)
+            with torch.no_grad():
+                p = torch.softmax(model(feat), dim=1)[0][1].item()
+            cal_probs.append(p)
+    baseline_prob = float(np.mean(cal_probs)) if cal_probs else 0.0
+    print(f"  Baseline: {baseline_prob:.3f} (will be subtracted from raw output)\n")
+
     try:
         while time.time() - start_time < args.duration:
             data = stream.read(CHUNK, exception_on_overflow=False)
@@ -165,7 +182,10 @@ def main():
             # PCEN handles gain normalization — no mic_scale needed
             feat = preprocess(audio_buf, mean, std)
             with torch.no_grad():
-                prob = torch.softmax(model(feat), dim=1)[0][1].item()
+                raw_prob = torch.softmax(model(feat), dim=1)[0][1].item()
+
+            # Subtract ambient baseline so normal conditions sit near 0.0
+            prob = max(0.0, (raw_prob - baseline_prob) / max(1.0 - baseline_prob, 0.01))
 
             history.append(prob)
             smoothed = float(np.mean(history))

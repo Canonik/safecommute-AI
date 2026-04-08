@@ -237,6 +237,23 @@ def main():
     prob_history = collections.deque(maxlen=SMOOTHING_WINDOW)
     last_status  = None
 
+    # ── Auto-calibrate: measure ambient baseline for 3 seconds ────────
+    print("Calibrating ambient baseline (3s — stay quiet)...")
+    cal_probs = []
+    for _ in range(3):
+        data = stream.read(CHUNK_SIZE, exception_on_overflow=False)
+        new_audio = np.frombuffer(data, dtype=np.float32)
+        audio_buffer = np.roll(audio_buffer, -CHUNK_SIZE)
+        audio_buffer[-CHUNK_SIZE:] = new_audio
+        rms = float(np.sqrt(np.mean(audio_buffer ** 2)))
+        if rms >= ENERGY_GATE_RMS:
+            features = preprocess(audio_buffer, feat_mean, feat_std).to(device)
+            with torch.no_grad():
+                p = torch.softmax(model(features), dim=1)[0][1].item()
+            cal_probs.append(p)
+    baseline_prob = float(np.mean(cal_probs)) if cal_probs else 0.0
+    print(f"Baseline: {baseline_prob:.3f} (subtracted from raw output)\n")
+
     try:
         while True:
             data      = stream.read(CHUNK_SIZE, exception_on_overflow=False)
@@ -262,7 +279,10 @@ def main():
                 logits     = model(features)
                 raw_unsafe = torch.softmax(logits, dim=1)[0][1].item()
 
-            prob_history.append(raw_unsafe)
+            # Subtract ambient baseline so normal conditions sit near 0.0
+            adjusted = max(0.0, (raw_unsafe - baseline_prob) / max(1.0 - baseline_prob, 0.01))
+
+            prob_history.append(adjusted)
             smoothed = float(np.mean(prob_history))
 
             # Adaptive thresholding: during speech, require higher confidence
