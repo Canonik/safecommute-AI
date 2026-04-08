@@ -540,7 +540,8 @@ if __name__ == "__main__":
                         help='Maximum SNR for injected noise (dB)')
     parser.add_argument('--hard-neg-quota', type=float, default=0.0,
                         help='Target minibatch fraction for safe hard negatives '
-                             '(as_laughter/as_crowd/as_speech/yt_metro). 0 disables.')
+                             '(as_laughter/as_crowd/as_speech/yt_metro). '
+                             'Valid range: 0.0 to <1.0; 0 disables.')
     args = parser.parse_args()
     noise_sources = [s.strip() for s in args.noise_sources.split(',') if s.strip()]
     train(use_focal=args.focal, use_cosine=args.cosine, use_strong_aug=args.strong_aug,

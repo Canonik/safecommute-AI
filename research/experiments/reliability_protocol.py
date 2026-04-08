@@ -273,8 +273,10 @@ def main():
     print("=" * 60)
     print("Reliability protocol summary")
     print("=" * 60)
+    hard_neg_fpr_str = "N/A" if hard_neg_fpr is None else f"{hard_neg_fpr:.4f}"
+    worst_source_str = "N/A" if worst_source_acc is None else f"{worst_source_acc:.4f}"
     print(f"AUC={report['metrics']['auc']}, Acc={acc:.4f}, F1={f1:.4f}")
-    print(f"Hard-neg FPR={hard_neg_fpr}, Worst-source acc={worst_source_acc}")
+    print(f"Hard-neg FPR={hard_neg_fpr_str}, Worst-source acc={worst_source_str}")
     print(f"Benchmark immutable={benchmark_ok}")
     print(f"All gates pass={report['gates']['all_pass']}")
     print(f"Saved: {args.output}")

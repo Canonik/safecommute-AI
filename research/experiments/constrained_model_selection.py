@@ -53,6 +53,7 @@ def main():
         crowd = source_metric(report, "as_crowd", "accuracy", 0.0)
         metro = source_metric(report, "yt_metro", "accuracy", 0.0)
         feasible = (
+            # Equality is allowed when min_shout_improvement == 0.0.
             shout >= (base_shout + args.min_shout_improvement)
             and crowd >= base_crowd
             and metro >= base_metro
