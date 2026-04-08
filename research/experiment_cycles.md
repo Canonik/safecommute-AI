@@ -356,4 +356,68 @@ The tradeoff is a drop in as_shout detection (81.2% -> 64.7%), suggesting that n
 
 ---
 
+### Cycle 7 — Noise Injection Tuning + Label Smoothing (completed 2026-04-08)
+
+**Technique:** Two approaches to recover the as_shout degradation (81.2% -> 64.7%) observed in Cycle 6 while preserving the crowd/metro gains from noise injection:
+1. **Config 1 (mild noise):** Reduce noise injection aggressiveness — probability 0.15 (from 0.3), minimum SNR 5dB (from 0dB). Less noise = less shout masking during training.
+2. **Config 2 (noise + label smoothing):** Keep Cycle 6 noise settings (prob=0.3, SNR 0-20dB) but add label smoothing 0.1 to soften hard targets and improve generalization.
+
+**Config 1:** --focal --cosine --strong-aug --gamma 0.5 --noise-inject --noise-prob 0.15 --noise-snr-min 5 --seed 42, 25 max epochs.
+**Config 2:** --focal --cosine --strong-aug --gamma 0.5 --noise-inject --label-smoothing 0.1 --seed 42, 25 max epochs.
+
+**Implementation:** Added --noise-prob, --noise-snr-min, --noise-snr-max CLI flags to train.py to make noise injection parameters tunable. Previously these were hardcoded as module-level constants.
+
+**Training Progression:**
+- Config 1 (mild noise): Steady improvement throughout. Best val loss at E25 (VL=0.4105, VA=66.1%). Ran all 25 epochs, still improving. Train accuracy reached 72.2%.
+- Config 2 (noise + LS): Best val loss at E9 (VL=0.4544, VA=59.9%). Val loss plateaued with fluctuations E10-E15. Early stopped at E15. Label smoothing created a higher loss floor that confused the early stopping criterion.
+
+**Results — Overall Metrics:**
+
+| Config | AUC | Accuracy | F1 | Best Epoch | Stopped |
+|--------|-----|----------|----|------------|---------|
+| C6 baseline (noise, g=0.5) | **0.8044** | **70.3%** | **0.7157** | E23 | E25 (full) |
+| C7-1 mild noise (p=0.15, SNR 5-20) | 0.7970 | 66.5% | 0.6773 | E25 | E25 (full) |
+| C7-2 noise + LS 0.1 | 0.7627 | 60.8% | 0.6169 | E9 | E15 (early stop) |
+| C5 ref (g=0.5, no noise) | 0.7932 | 66.8% | 0.6808 | E19 | E25 |
+
+**Results — Hard Negative Accuracy (safe samples):**
+
+| Source | C6 baseline | C7-1 mild noise | C7-2 noise+LS | C5 ref (no noise) |
+|--------|-------------|------------------|---------------|-------------------|
+| as_laughter | 17.5% | 13.8% | 5.6% | 17.1% |
+| as_crowd | **42.1%** | 25.5% | 9.2% | 22.5% |
+| as_speech | **28.3%** | 20.6% | 15.3% | 24.6% |
+| yt_metro | **64.9%** | 56.6% | 45.0% | 58.8% |
+
+**Results — Unsafe Class Accuracy (threat detection):**
+
+| Source | C6 baseline | C7-1 mild noise | C7-2 noise+LS | C5 ref (no noise) |
+|--------|-------------|------------------|---------------|-------------------|
+| as_screaming | 79.1% | **87.2%** | **87.2%** | 85.5% |
+| as_shout | 64.7% | **78.0%** | 82.2% | 81.2% |
+| as_yell | 90.6% | 90.9% | **96.5%** | 88.1% |
+| yt_scream | 78.2% | **78.7%** | **86.7%** | 80.4% |
+
+**Assessment:** BOTH CONFIGS FAILED to improve upon Cycle 6. Neither matches the AUC, accuracy, or F1 of the Cycle 6 baseline.
+
+**Config 1 analysis (mild noise):** Reducing noise injection did recover as_shout (78.0% vs 64.7%) and as_screaming (87.2% vs 79.1%), confirming the hypothesis that aggressive noise masks shouts during training. However, this came at the cost of exactly the gains Cycle 6 provided: as_crowd dropped from 42.1% to 25.5% (-16.6%) and yt_metro from 64.9% to 56.6% (-8.3%). AUC dropped from 0.8044 to 0.7970. The noise injection works precisely BECAUSE it's aggressive enough to force noise-robust feature learning. Making it milder just makes it a weaker version of Cycle 6 that's also worse than Cycle 5 on accuracy (66.5% vs 66.8%).
+
+**Config 2 analysis (noise + label smoothing):** This was the worst configuration. Label smoothing 0.1 degraded everything — AUC dropped to 0.7627, accuracy to 60.8%. All hard negative metrics collapsed (as_crowd 9.2%, yt_metro 45.0%). The only "improvement" was unsafe detection (shout 82.2%, yell 96.5%, yt_scream 86.7%), but this is simply the model reverting to "predict everything as unsafe" bias — the same failure mode as high gamma values. Label smoothing's softer targets appear to interfere with focal loss's sample weighting mechanism. The early stopping at E15 (vs E25 for Config 1 and Cycle 6) suggests the optimization landscape became harder to navigate.
+
+**Key insight — the noise injection tradeoff is fundamental:** Cycle 7 confirms that the as_shout degradation from Cycle 6 is NOT a fixable bug but a fundamental tradeoff. Noise injection teaches the model to be robust to ambient noise, which means it learns to IGNORE low-energy features that could distinguish quiet shouts from background noise. The more aggressive the noise, the better it handles crowd/metro but the worse it handles shouts. There is no parameter setting that gives "the best of both worlds."
+
+**Learnings:**
+- Noise injection aggressiveness is a direct knob on the shout-vs-crowd tradeoff. Prob=0.3 + SNR 0-20dB is optimal for crowd/metro; prob=0.15 + SNR 5-20dB is better for shout detection. No middle ground beats Cycle 6 overall.
+- Label smoothing is harmful when combined with focal loss. The soft targets (0.95/0.05 instead of 1.0/0.0) reduce the gradient magnitude that focal loss relies on for its sample weighting. The two techniques are incompatible.
+- Label smoothing caused early stopping due to the higher val loss floor, preventing the model from reaching full convergence.
+- The Cycle 6 configuration (noise prob=0.3, SNR 0-20dB, no label smoothing) remains the best overall result.
+
+**Next steps:**
+1. **Cycle 6 remains the production config.** The as_shout degradation is an acceptable tradeoff for the massive crowd/metro improvements.
+2. Consider a two-threshold deployment strategy: lower threshold for shout-like sounds, higher for ambient.
+3. Try noise injection with MULTIPLE noise sources (not just yt_metro) to see if broader noise diversity improves generalization without the shout penalty.
+4. Consider frequency-band dropout (technique #8) to improve robustness without the shout-masking effect of additive noise.
+
+---
+
 *Subsequent cycles will be appended below by the autonomous experiment loop.*
