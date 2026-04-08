@@ -58,6 +58,20 @@ LABEL_SMOOTHING = 0.1      # Prevents overconfident logits, improves threshold c
 MIXUP_ALPHA = 0.3          # Beta distribution parameter for mixup interpolation weight
 MIXUP_PROB = 0.5           # Apply mixup to 50% of batches
 
+# Per-source prefix mappings for detailed evaluation
+SAFE_SOURCES = {
+    'as_laughter': 'as_laughter',
+    'as_crowd': 'as_crowd',
+    'as_speech': 'as_speech',
+    'yt_metro': 'yt_metro',
+}
+UNSAFE_SOURCES = {
+    'as_screaming': 'as_screaming',
+    'as_shout': 'as_shout',
+    'as_yell': 'as_yell',
+    'yt_scream': 'yt_scream',
+}
+
 
 class FocalLoss(nn.Module):
     """
@@ -131,11 +145,64 @@ def compute_class_weights(dataset):
     return torch.tensor(weights, dtype=torch.float32)
 
 
+def classify_source(filename):
+    """Extract source prefix from a .pt filename for per-source evaluation."""
+    base = os.path.basename(filename)
+    for prefix in sorted(list(SAFE_SOURCES.keys()) + list(UNSAFE_SOURCES.keys()), key=len, reverse=True):
+        if base.startswith(prefix):
+            return prefix
+    return 'other'
+
+
+def per_source_accuracy(test_dir, model, device, mean, std):
+    """Compute per-source accuracy breakdown on test set."""
+    from collections import defaultdict
+    source_correct = defaultdict(int)
+    source_total = defaultdict(int)
+
+    for split_dir in ['0_safe', '1_unsafe']:
+        label = int(split_dir[0])
+        split_path = os.path.join(test_dir, split_dir)
+        if not os.path.isdir(split_path):
+            continue
+        for fname in os.listdir(split_path):
+            if not fname.endswith('.pt') or '_teacher.pt' in fname:
+                continue
+            source = classify_source(fname)
+            fpath = os.path.join(split_path, fname)
+            spec = torch.load(fpath, map_location='cpu', weights_only=True)
+            if isinstance(spec, dict):
+                spec = spec['spectrogram'] if 'spectrogram' in spec else list(spec.values())[0]
+            # Expected shape: [1, 64, 188] -> need [1, 1, 64, 188]
+            if spec.dim() == 2:  # [64, 188]
+                spec = spec.unsqueeze(0).unsqueeze(0)
+            elif spec.dim() == 3:  # [1, 64, 188]
+                spec = spec.unsqueeze(0)
+            elif spec.dim() != 4:
+                continue  # skip unexpected shapes
+            spec = (spec - mean) / (std + 1e-7)
+            with torch.no_grad():
+                logits = model(spec.to(device))
+                pred = logits.argmax(1).item()
+            source_correct[source] += int(pred == label)
+            source_total[source] += 1
+
+    results = {}
+    for source in sorted(source_total.keys()):
+        acc = source_correct[source] / source_total[source] if source_total[source] > 0 else 0
+        results[source] = (acc, source_correct[source], source_total[source])
+    return results
+
+
 def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
-          label_smoothing=0.0, save_path=None, seed=42):
+          label_smoothing=0.0, save_path=None, seed=42, epochs=None,
+          mixup_alpha=None, mixup_prob=None):
     seed_everything(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_path = save_path or MODEL_SAVE_PATH
+    max_epochs = epochs or EPOCHS
+    mx_alpha = mixup_alpha if mixup_alpha is not None else MIXUP_ALPHA
+    mx_prob = mixup_prob if mixup_prob is not None else MIXUP_PROB
 
     mean, std = load_stats()
 
@@ -151,7 +218,8 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
 
     print(f"Train: {len(train_dataset)}, Val: {len(val_dataset)}")
     print(f"Focal={use_focal}(gamma={gamma}), Cosine={use_cosine}, "
-          f"StrongAug={use_strong_aug}, Seed={seed}")
+          f"StrongAug={use_strong_aug}, Seed={seed}, Epochs={max_epochs}")
+    print(f"Mixup: alpha={mx_alpha}, prob={mx_prob}")
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                               shuffle=True, num_workers=2, pin_memory=True,
@@ -185,7 +253,7 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
     best_val_loss = float('inf')
     epochs_no_impro = 0
 
-    for epoch in range(EPOCHS):
+    for epoch in range(max_epochs):
         model.train()
         run_loss = correct = total = 0
         for inputs, labels in train_loader:
@@ -209,8 +277,8 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
                         f_width = random.randint(3, 10)
                         inputs[i, :, f_start:f_start + f_width, :] = 0
 
-            if np.random.random() < MIXUP_PROB:
-                inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels)
+            if np.random.random() < mx_prob:
+                inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels, alpha=mx_alpha)
                 outputs = model(inputs)
                 loss = lam * criterion(outputs, labels_a) + (1 - lam) * criterion(outputs, labels_b)
                 preds = outputs.detach().argmax(1)
@@ -286,7 +354,15 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
     acc = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average='weighted')
     print(f"\n  TEST: Acc={acc:.4f} F1={f1:.4f} AUC={auc:.4f}")
-    return auc
+
+    # Per-source accuracy breakdown
+    test_dir = os.path.join(DATA_DIR, 'test')
+    source_results = per_source_accuracy(test_dir, model, device, mean, std)
+    print("\n  Per-source accuracy:")
+    for source, (s_acc, s_corr, s_tot) in source_results.items():
+        print(f"    {source:20s}: {s_acc*100:5.1f}% ({s_corr}/{s_tot})")
+
+    return {'auc': auc, 'acc': acc, 'f1': f1, 'per_source': source_results}
 
 
 if __name__ == "__main__":
@@ -299,7 +375,14 @@ if __name__ == "__main__":
                         help='Label smoothing (default: 0.0, was 0.1 in v1)')
     parser.add_argument('--save', type=str, default=None)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--epochs', type=int, default=None,
+                        help='Max training epochs (default: 25)')
+    parser.add_argument('--mixup-alpha', type=float, default=None,
+                        help='Mixup alpha (default: 0.3)')
+    parser.add_argument('--mixup-prob', type=float, default=None,
+                        help='Mixup probability (default: 0.5)')
     args = parser.parse_args()
     train(use_focal=args.focal, use_cosine=args.cosine, use_strong_aug=args.strong_aug,
           gamma=args.gamma, label_smoothing=args.label_smoothing,
-          save_path=args.save, seed=args.seed)
+          save_path=args.save, seed=args.seed, epochs=args.epochs,
+          mixup_alpha=args.mixup_alpha, mixup_prob=args.mixup_prob)
