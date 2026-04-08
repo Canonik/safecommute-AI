@@ -35,6 +35,40 @@ CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
 SMOOTHING = 4
 ENERGY_GATE_RMS = 0.003
+SPEECH_THRESH_BOOST = 0.85
+
+
+def detect_speech(audio, sr=SAMPLE_RATE, frame_ms=30, hop_ms=10):
+    """Detect stable speech via F0 estimation (autocorrelation)."""
+    frame_len = int(sr * frame_ms / 1000)
+    hop_len = int(sr * hop_ms / 1000)
+    min_lag = int(sr / 300)   # 300Hz upper bound
+    max_lag = int(sr / 85)    # 85Hz lower bound
+
+    voiced_in_range = 0
+    voiced_total = 0
+
+    for start in range(0, len(audio) - frame_len, hop_len):
+        frame = audio[start:start + frame_len]
+        if np.sqrt(np.mean(frame ** 2)) < 0.01:
+            continue
+        corr = np.correlate(frame, frame, mode='full')
+        corr = corr[len(corr) // 2:]
+        if corr[0] > 0:
+            corr = corr / corr[0]
+        search = corr[min_lag:max_lag + 1]
+        if len(search) == 0:
+            continue
+        if np.max(search) > 0.3:
+            voiced_total += 1
+            peak_lag = np.argmax(search) + min_lag
+            f0 = sr / peak_lag
+            if 85 <= f0 <= 300:
+                voiced_in_range += 1
+
+    if voiced_total == 0:
+        return False
+    return (voiced_in_range / voiced_total) >= 0.50
 
 
 def load_thresholds(thresholds_path):
@@ -99,6 +133,7 @@ def main():
     else:
         print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
     print(f"  Privacy: RAM only, no audio saved")
+    print(f"  Speech-aware: threshold -> {SPEECH_THRESH_BOOST:.2f} during speech")
     print(f"{'='*58}\n")
 
     audio_buf = np.zeros(BUFFER, dtype=np.float32)
@@ -124,6 +159,9 @@ def main():
                 last_status = 'silent'
                 continue
 
+            # Speech detection: raise threshold during normal conversation
+            is_speech = detect_speech(audio_buf)
+
             # PCEN handles gain normalization — no mic_scale needed
             feat = preprocess(audio_buf, mean, std)
             with torch.no_grad():
@@ -132,18 +170,23 @@ def main():
             history.append(prob)
             smoothed = float(np.mean(history))
 
+            # Adaptive thresholding
+            eff_amber = (SPEECH_THRESH_BOOST - 0.10) if is_speech else amber
+            eff_red = SPEECH_THRESH_BOOST if is_speech else red
+            speech_tag = "SPK" if is_speech else "   "
+
             bar = '#' * int(smoothed * 20) + '-' * (20 - int(smoothed * 20))
 
-            if smoothed >= red:
+            if smoothed >= eff_red:
                 if last_status != 'red':
                     print()
-                print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f})  ESCALATION")
+                print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  ESCALATION")
                 last_status = 'red'
-            elif smoothed >= amber:
-                print(f"  [{t}]  WARNING [{bar}] {smoothed:.2f} (raw={prob:.2f})  [{remaining:.0f}s]", end='\r')
+            elif smoothed >= eff_amber:
+                print(f"  [{t}]  WARNING [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  [{remaining:.0f}s]", end='\r')
                 last_status = 'amber'
             else:
-                print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f})  [{remaining:.0f}s]", end='\r')
+                print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  [{remaining:.0f}s]", end='\r')
                 if last_status == 'red':
                     print()
                 last_status = 'safe'
