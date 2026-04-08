@@ -1,40 +1,44 @@
 # SafeCommute AI — Next Steps
 
-## Completed (v2 Pipeline)
+## Completed
 
+- [x] v2 Pipeline (clean data, source-aware splits, no leakage)
 - [x] Drop acted speech datasets (CREMA-D, SAVEE, TESS, RAVDESS)
-- [x] Add AudioSet strongly-labeled data (6 threat + 7 safe categories)
-- [x] Fix data leakage (source-aware splits via sha256 hash + predefined folds)
-- [x] Fix augmentation timing (training-time only, no baked augmentation)
-- [x] 3-seed evaluation with confidence intervals
-- [x] LOSO evaluation (19 sources)
-- [x] Ablation study (5 variants)
-- [x] SOTA benchmark (7 models including PANNs, AST, Wav2Vec2)
-- [x] Fine-tuning script for deployment personalization
-- [x] Deployment acceptance test suite (7 tests)
+- [x] AudioSet strongly-labeled data (6 threat + 7 safe categories)
+- [x] 3-seed evaluation, 5-fold CV, LOSO, ablation studies
+- [x] SOTA benchmark (7 models)
 - [x] Threshold optimization (Youden's J, F1-optimal, low-FPR)
-- [x] Silence handling (synthetic samples + energy gating)
+- [x] Fine-tuning pipeline for deployment personalization
+- [x] Deployment acceptance test suite (7 tests)
 - [x] Model export (float32, INT8, TorchScript)
-- [x] HuggingFace model upload (Canonik/SafeCommute)
+- [x] AST knowledge distillation (teacher AUC 0.85, student AUC 0.80)
+- [x] 7-cycle experiment loop (gamma sweep, noise injection, etc.)
+- [x] Discovery: gamma=3.0 over-regularization was root cause of hard negative failure
+- [x] Best model: gamma=0.5 + noise injection (AUC 0.804, Acc 70.3%)
 
-## Next: Paper Writing
+## In Progress
 
-- [ ] Write paper (architecture, data strategy, results, deployment)
-- [ ] Generate final camera-ready figures
-- [ ] Submit to target venue
+- [ ] Cycle 7: noise injection + label smoothing evaluation
+- [ ] Consolidate experiment branches, merge best model
 
-## Next: Deployment
+## Next: Fix Speech False Positive Problem (CRITICAL)
 
+- [ ] Download high-quality speech data (LibriSpeech clean-100, CommonVoice verified, VoxCeleb1)
+- [ ] Integrate 15-20k speech clips as safe class
+- [ ] Retrain with gamma=0.5 + noise injection + speech data
+- [ ] Speech FPR must drop below 30% (currently 72%)
+
+## Next: Deployment Validation
+
+- [ ] Create reliability-first eval protocol (deployment gates)
 - [ ] Record real metro ambient audio (3-4 hours, phone in pocket)
-- [ ] Fine-tune with recorded metro data (expect FP rate < 5%)
-- [ ] Record bar/nightlife ambient for second vertical
-- [ ] Raspberry Pi deployment test (ARM inference latency)
+- [ ] Fine-tune with recorded metro data
+- [ ] Raspberry Pi ARM inference latency benchmark
 - [ ] Field pilot: 1 week at metro station with logging
 
-## Future Work
+## Next: Paper
 
-- [ ] Environmental noise mixing at training time (SNR augmentation)
-- [ ] Multi-language support (Italian, other languages)
-- [ ] Multi-microphone beamforming for direction estimation
-- [ ] Streaming inference optimization (overlap-add, buffer management)
-- [ ] Federated learning for privacy-preserving model updates
+- [ ] Write paper (architecture, data strategy, experiment results, deployment)
+- [ ] Re-run SOTA benchmark with fair fine-tuned baselines
+- [ ] Generate final camera-ready figures
+- [ ] Submit to DCASE Workshop / Interspeech / ICASSP

@@ -1,62 +1,40 @@
 # SafeCommute AI — Research
 
-## v2 Model (Current)
+## Current Best Model (Cycle 6)
 
 | Metric | Value |
 |--------|-------|
 | Architecture | CNN6 + SE + GRU + Multi-Scale Pooling |
 | Parameters | 1.83M |
-| AUC-ROC (test, 3-seed mean) | 0.844 +/- 0.019 |
-| Best single model AUC | 0.856 |
+| Config | gamma=0.5 focal + cosine LR + strong aug + noise injection |
+| AUC-ROC | 0.804 |
+| Accuracy | 70.3% |
+| F1 | 0.716 |
 | Model Size | 7.0 MB (float32), 5.0 MB (INT8) |
-| Inference Latency | ~7ms (CPU) |
-| Training data | 28,772 train / 5,613 val / 6,589 test (40,974 total) |
+| Inference Latency | ~12ms (CPU) |
 
-## Data Strategy
+## Key Findings
 
-Three-layer approach:
-1. **Layer 1 — Universal threats** (unsafe): AudioSet screaming, shout, yell, gunshot, explosion, glass breaking + YouTube real screams + violence dataset
-2. **Layer 2 — Hard negatives** (safe): AudioSet laughter, crowd, speech, music, applause, cheering, singing + ESC-50 + UrbanSound8K
-3. **Layer 3 — Deployment ambient** (safe, fine-tuning only): per-environment recorded audio
-
-Dropped: CREMA-D, SAVEE, TESS, RAVDESS (acted speech, 35-52% accuracy)
-
-## Key Results
-
-### SOTA Comparison
-| Model | Params | AUC | Latency |
-|-------|--------|-----|---------|
-| **SafeCommute** | **1.83M** | **0.856** | **12ms** |
-| PANNs CNN14 | 81.8M | 0.624 | 250ms |
-| AST | 86.6M | 0.615 | 965ms |
-
-### LOSO Key Finding
-Laughter (6%), crowd (11%), speech (20%) are essential hard negatives — without them the model classifies all loud sounds as threats. Threat sounds generalize well across sources (gunshot 90%, screaming 81%).
-
-### Deployment
-Metro fine-tuning: AUC 0.837 -> 0.867. With optimized threshold (0.666): 86% threat detection, 6.9% FP rate.
+1. **gamma=3.0 was catastrophically over-regularized** — hard negatives (speech 0.3%, laughter 0%, crowd 0%) got zero gradient. Lowering to gamma=0.5 fixed this.
+2. **Environmental noise injection works** — mixing metro ambient during training improved crowd accuracy from 22% to 42% and overall AUC from 0.793 to 0.804.
+3. **Speech remains the critical failure mode** — 72% FP rate due to insufficient speech training data (~2k clips). Fix: add LibriSpeech/CommonVoice/VoxCeleb.
+4. **Training tricks (SSN, HNM, aggressive mixup) all failed at gamma=3.0** — they add regularization that conflicts with already-aggressive focal loss.
 
 ## Directory Structure
 
 ```
 research/
-  README.md                    # This file
-  NEXT_STEPS.md                # Publication roadmap
-  experiment_log.md            # All experiment results (append-only)
-  data_sources.md              # Dataset citations and details
-  literature_review.md         # Paper survey
-  figures/                     # Publication-quality figures
-  results/                     # Experiment results (JSON + model checkpoints)
-  experiments/                 # Experiment scripts
-    eval_utils.py              # Shared evaluation utilities
-    loso_evaluation.py         # Leave-one-source-out
-    ablation_study.py          # Architectural ablation
-    cross_validation.py        # 5-fold CV
-    threshold_optimization.py  # Threshold tuning
-    [+ 12 more experiment scripts]
-  generate_paper_figures.py    # Publication figure generator
-  run_all_experiments.py       # Master experiment runner
+  experiment_cycles.md    # Autonomous experiment loop results (Cycles 0-7)
+  experiment_log.md       # Historical experiment results (v1, v2, ablations, LOSO)
+  data_sources.md         # Dataset citations and details
+  literature_review.md    # 20-paper survey with priority table
+  NEXT_STEPS.md           # Publication and deployment roadmap
+  figures/                # Publication-quality figures
+  results/                # Experiment results (JSON)
+  experiments/            # Experiment scripts (ablation, LOSO, CV, etc.)
 ```
 
-See [experiment_log.md](experiment_log.md) for all results.
-See [NEXT_STEPS.md](NEXT_STEPS.md) for the publication roadmap.
+## Experiment History
+
+See [experiment_cycles.md](experiment_cycles.md) for the full 7-cycle autonomous loop.
+See [experiment_log.md](experiment_log.md) for historical baselines, ablations, LOSO, and SOTA comparisons.

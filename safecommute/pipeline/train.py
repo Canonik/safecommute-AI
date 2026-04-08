@@ -264,13 +264,19 @@ def inject_noise(inputs, noise_bank, device, prob=NOISE_INJECT_PROB,
 
 def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
           label_smoothing=0.0, save_path=None, seed=42, epochs=None,
-          mixup_alpha=None, mixup_prob=None, noise_inject=False):
+          mixup_alpha=None, mixup_prob=None, noise_inject=False,
+          noise_prob=None, noise_snr_min=None, noise_snr_max=None):
     seed_everything(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_path = save_path or MODEL_SAVE_PATH
     max_epochs = epochs or EPOCHS
     mx_alpha = mixup_alpha if mixup_alpha is not None else MIXUP_ALPHA
     mx_prob = mixup_prob if mixup_prob is not None else MIXUP_PROB
+
+    # Resolve noise injection parameters
+    n_prob = noise_prob if noise_prob is not None else NOISE_INJECT_PROB
+    n_snr_min = noise_snr_min if noise_snr_min is not None else NOISE_SNR_MIN
+    n_snr_max = noise_snr_max if noise_snr_max is not None else NOISE_SNR_MAX
 
     mean, std = load_stats()
 
@@ -294,7 +300,7 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
           f"StrongAug={use_strong_aug}, Seed={seed}, Epochs={max_epochs}")
     print(f"Mixup: alpha={mx_alpha}, prob={mx_prob}")
     if noise_inject:
-        print(f"Noise injection: prob={NOISE_INJECT_PROB}, SNR=[{NOISE_SNR_MIN},{NOISE_SNR_MAX}]dB")
+        print(f"Noise injection: prob={n_prob}, SNR=[{n_snr_min},{n_snr_max}]dB")
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                               shuffle=True, num_workers=2, pin_memory=True,
@@ -354,7 +360,8 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
 
             # Environmental noise injection: add yt_metro ambient at random SNR
             if noise_inject and len(noise_bank) > 0:
-                inputs = inject_noise(inputs, noise_bank, device)
+                inputs = inject_noise(inputs, noise_bank, device,
+                                      prob=n_prob, snr_min=n_snr_min, snr_max=n_snr_max)
 
             if np.random.random() < mx_prob:
                 inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels, alpha=mx_alpha)
@@ -462,9 +469,17 @@ if __name__ == "__main__":
                         help='Mixup probability (default: 0.5)')
     parser.add_argument('--noise-inject', action='store_true',
                         help='Enable environmental noise injection using yt_metro samples')
+    parser.add_argument('--noise-prob', type=float, default=None,
+                        help='Noise injection probability (default: 0.3)')
+    parser.add_argument('--noise-snr-min', type=float, default=None,
+                        help='Minimum SNR in dB for noise injection (default: 0.0)')
+    parser.add_argument('--noise-snr-max', type=float, default=None,
+                        help='Maximum SNR in dB for noise injection (default: 20.0)')
     args = parser.parse_args()
     train(use_focal=args.focal, use_cosine=args.cosine, use_strong_aug=args.strong_aug,
           gamma=args.gamma, label_smoothing=args.label_smoothing,
           save_path=args.save, seed=args.seed, epochs=args.epochs,
           mixup_alpha=args.mixup_alpha, mixup_prob=args.mixup_prob,
-          noise_inject=args.noise_inject)
+          noise_inject=args.noise_inject,
+          noise_prob=args.noise_prob, noise_snr_min=args.noise_snr_min,
+          noise_snr_max=args.noise_snr_max)
