@@ -32,6 +32,7 @@ Loss function choices:
 """
 import os
 import sys
+import glob
 import json
 import random
 import argparse
@@ -42,11 +43,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
+from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from safecommute.model import SafeCommuteCNN
 from safecommute.dataset import TensorAudioDataset
-from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, THRESHOLDS_PATH
+from safecommute.constants import DATA_DIR, STATS_PATH, MODEL_SAVE_PATH, THRESHOLDS_PATH, TIME_FRAMES
 from safecommute.utils import seed_everything, worker_init_fn
 
 # Training hyperparameters — tuned via grid search (see experiment_log.md)
@@ -71,6 +73,11 @@ UNSAFE_SOURCES = {
     'as_yell': 'as_yell',
     'yt_scream': 'yt_scream',
 }
+
+# Environmental noise injection parameters
+NOISE_INJECT_PROB = 0.3    # Probability of injecting noise into a sample
+NOISE_SNR_MIN = 0.0        # Minimum SNR in dB (loudest noise)
+NOISE_SNR_MAX = 20.0       # Maximum SNR in dB (quietest noise)
 
 
 class FocalLoss(nn.Module):
@@ -156,7 +163,6 @@ def classify_source(filename):
 
 def per_source_accuracy(test_dir, model, device, mean, std):
     """Compute per-source accuracy breakdown on test set."""
-    from collections import defaultdict
     source_correct = defaultdict(int)
     source_total = defaultdict(int)
 
@@ -194,9 +200,71 @@ def per_source_accuracy(test_dir, model, device, mean, std):
     return results
 
 
+def load_noise_bank(data_dir, mean, std):
+    """
+    Pre-load all yt_metro spectrograms from training set as a noise bank.
+    These are real metro ambient recordings used to inject environmental
+    noise during training, teaching the model to detect threats in noisy
+    conditions.
+
+    Returns a list of normalized spectrogram tensors on CPU.
+    """
+    noise_dir = os.path.join(data_dir, 'train', '0_safe')
+    noise_paths = sorted(glob.glob(os.path.join(noise_dir, 'yt_metro*.pt')))
+    noise_bank = []
+    for p in noise_paths:
+        spec = torch.load(p, map_location='cpu', weights_only=True)
+        if isinstance(spec, dict):
+            spec = spec.get('spectrogram', list(spec.values())[0])
+        # Enforce shape [1, 64, TIME_FRAMES]
+        while spec.dim() < 3:
+            spec = spec.unsqueeze(0)
+        if spec.dim() > 3:
+            spec = spec.squeeze(0)
+        t = spec.shape[-1]
+        if t > TIME_FRAMES:
+            spec = spec[:, :, :TIME_FRAMES]
+        elif t < TIME_FRAMES:
+            pad = torch.zeros(spec.shape[0], spec.shape[1], TIME_FRAMES - t)
+            spec = torch.cat([spec, pad], dim=-1)
+        # Normalize same as training data
+        spec = (spec - mean) / (std + 1e-8)
+        noise_bank.append(spec)
+    print(f"  Noise bank: {len(noise_bank)} yt_metro spectrograms loaded")
+    return noise_bank
+
+
+def inject_noise(inputs, noise_bank, device, prob=NOISE_INJECT_PROB,
+                 snr_min=NOISE_SNR_MIN, snr_max=NOISE_SNR_MAX):
+    """
+    Environmental noise injection: with probability `prob`, add a random
+    yt_metro spectrogram to each sample at a random SNR level.
+
+    Formula: noisy = clean + noise * 10^(-snr_db/20)
+    where snr_db ~ Uniform(snr_min, snr_max)
+
+    Higher SNR = quieter noise. At SNR=0dB the noise is as loud as the signal.
+    At SNR=20dB the noise is 10x quieter than the signal.
+    """
+    if len(noise_bank) == 0:
+        return inputs
+    B = inputs.size(0)
+    for i in range(B):
+        if random.random() < prob:
+            # Pick a random noise sample
+            noise_spec = noise_bank[random.randint(0, len(noise_bank) - 1)]
+            noise_spec = noise_spec.to(device)
+            # Random SNR
+            snr_db = random.uniform(snr_min, snr_max)
+            scale = 10.0 ** (-snr_db / 20.0)
+            # Add noise (noise_spec is [1, 64, 188], inputs[i] is [1, 64, 188])
+            inputs[i] = inputs[i] + noise_spec * scale
+    return inputs
+
+
 def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
           label_smoothing=0.0, save_path=None, seed=42, epochs=None,
-          mixup_alpha=None, mixup_prob=None):
+          mixup_alpha=None, mixup_prob=None, noise_inject=False):
     seed_everything(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_path = save_path or MODEL_SAVE_PATH
@@ -205,6 +273,11 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
     mx_prob = mixup_prob if mixup_prob is not None else MIXUP_PROB
 
     mean, std = load_stats()
+
+    # Load noise bank if noise injection is enabled
+    noise_bank = []
+    if noise_inject:
+        noise_bank = load_noise_bank(DATA_DIR, mean, std)
 
     # Training dataset gets base augmentation (SpecAugment in __getitem__)
     train_dataset = TensorAudioDataset(
@@ -220,6 +293,8 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
     print(f"Focal={use_focal}(gamma={gamma}), Cosine={use_cosine}, "
           f"StrongAug={use_strong_aug}, Seed={seed}, Epochs={max_epochs}")
     print(f"Mixup: alpha={mx_alpha}, prob={mx_prob}")
+    if noise_inject:
+        print(f"Noise injection: prob={NOISE_INJECT_PROB}, SNR=[{NOISE_SNR_MIN},{NOISE_SNR_MAX}]dB")
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
                               shuffle=True, num_workers=2, pin_memory=True,
@@ -276,6 +351,10 @@ def train(use_focal=False, use_cosine=False, use_strong_aug=False, gamma=2.0,
                         f_start = random.randint(0, 50)
                         f_width = random.randint(3, 10)
                         inputs[i, :, f_start:f_start + f_width, :] = 0
+
+            # Environmental noise injection: add yt_metro ambient at random SNR
+            if noise_inject and len(noise_bank) > 0:
+                inputs = inject_noise(inputs, noise_bank, device)
 
             if np.random.random() < mx_prob:
                 inputs, labels_a, labels_b, lam = mixup_batch(inputs, labels, alpha=mx_alpha)
@@ -381,8 +460,11 @@ if __name__ == "__main__":
                         help='Mixup alpha (default: 0.3)')
     parser.add_argument('--mixup-prob', type=float, default=None,
                         help='Mixup probability (default: 0.5)')
+    parser.add_argument('--noise-inject', action='store_true',
+                        help='Enable environmental noise injection using yt_metro samples')
     args = parser.parse_args()
     train(use_focal=args.focal, use_cosine=args.cosine, use_strong_aug=args.strong_aug,
           gamma=args.gamma, label_smoothing=args.label_smoothing,
           save_path=args.save, seed=args.seed, epochs=args.epochs,
-          mixup_alpha=args.mixup_alpha, mixup_prob=args.mixup_prob)
+          mixup_alpha=args.mixup_alpha, mixup_prob=args.mixup_prob,
+          noise_inject=args.noise_inject)
