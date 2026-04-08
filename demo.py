@@ -35,7 +35,7 @@ CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
 SMOOTHING = 4
 ENERGY_GATE_RMS = 0.003
-SPEECH_THRESH_BOOST = 0.85
+SPEECH_THRESH_BOOST = 0.70
 
 
 def detect_speech(audio, sr=SAMPLE_RATE, frame_ms=30, hop_ms=10):
@@ -184,8 +184,9 @@ def main():
             with torch.no_grad():
                 raw_prob = torch.softmax(model(feat), dim=1)[0][1].item()
 
-            # Subtract ambient baseline so normal conditions sit near 0.0
-            prob = max(0.0, (raw_prob - baseline_prob) / max(1.0 - baseline_prob, 0.01))
+            # Gentle baseline correction — subtract half the ambient floor
+            # to reduce resting probability without killing sensitivity
+            prob = max(0.0, raw_prob - baseline_prob * 0.5)
 
             history.append(prob)
             smoothed = float(np.mean(history))

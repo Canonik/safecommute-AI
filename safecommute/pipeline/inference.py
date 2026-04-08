@@ -67,7 +67,7 @@ PREFERRED_MIC      = None    # Set to substring of mic name to auto-select
 # alert threshold to avoid false-positiving on normal conversation.
 # Normal speech has stable F0 between 85-300Hz. Screams have F0 > 500Hz
 # or wildly unstable pitch. This separation is robust across languages.
-SPEECH_THRESH_BOOST = 0.85   # Threshold during detected speech (high bar)
+SPEECH_THRESH_BOOST = 0.70   # Threshold during detected speech
 F0_MIN_HZ          = 85      # Lowest expected speech F0
 F0_MAX_HZ          = 300     # Highest expected speech F0
 F0_STABILITY_RATIO  = 0.50   # Fraction of frames that must have stable F0
@@ -279,8 +279,8 @@ def main():
                 logits     = model(features)
                 raw_unsafe = torch.softmax(logits, dim=1)[0][1].item()
 
-            # Subtract ambient baseline so normal conditions sit near 0.0
-            adjusted = max(0.0, (raw_unsafe - baseline_prob) / max(1.0 - baseline_prob, 0.01))
+            # Gentle baseline correction — subtract half the ambient floor
+            adjusted = max(0.0, raw_unsafe - baseline_prob * 0.5)
 
             prob_history.append(adjusted)
             smoothed = float(np.mean(prob_history))
