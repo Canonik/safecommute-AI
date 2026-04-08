@@ -5,12 +5,10 @@ SafeCommute AI — Live Demo
 Records from your microphone and classifies each 3-second window as
 Safe/Warning/Alert in real-time. No audio is saved to disk.
 
-Uses PCEN (Per-Channel Energy Normalization) for gain-invariant features.
-No mic calibration needed — PCEN adapts to any microphone gain level.
-
 Usage:
     PYTHONPATH=. python demo.py
-    PYTHONPATH=. python demo.py --model models/metro_model.pth
+    PYTHONPATH=. python demo.py --model models/cycle6_noise_inject.pth
+    PYTHONPATH=. python demo.py --threshold 0.60
 """
 
 import sys
@@ -33,67 +31,17 @@ WINDOW_SEC = 3
 STRIDE_SEC = 1
 CHUNK = int(SAMPLE_RATE * STRIDE_SEC)
 BUFFER = int(SAMPLE_RATE * WINDOW_SEC)
-SMOOTHING = 4
-ENERGY_GATE_RMS = 0.003
-SPEECH_THRESH_BOOST = 0.70
-
-
-def detect_speech(audio, sr=SAMPLE_RATE, frame_ms=30, hop_ms=10):
-    """Detect stable speech via F0 estimation (autocorrelation)."""
-    frame_len = int(sr * frame_ms / 1000)
-    hop_len = int(sr * hop_ms / 1000)
-    min_lag = int(sr / 300)   # 300Hz upper bound
-    max_lag = int(sr / 85)    # 85Hz lower bound
-
-    voiced_in_range = 0
-    voiced_total = 0
-
-    for start in range(0, len(audio) - frame_len, hop_len):
-        frame = audio[start:start + frame_len]
-        if np.sqrt(np.mean(frame ** 2)) < 0.01:
-            continue
-        corr = np.correlate(frame, frame, mode='full')
-        corr = corr[len(corr) // 2:]
-        if corr[0] > 0:
-            corr = corr / corr[0]
-        search = corr[min_lag:max_lag + 1]
-        if len(search) == 0:
-            continue
-        if np.max(search) > 0.3:
-            voiced_total += 1
-            peak_lag = np.argmax(search) + min_lag
-            f0 = sr / peak_lag
-            if 85 <= f0 <= 300:
-                voiced_in_range += 1
-
-    if voiced_total == 0:
-        return False
-    return (voiced_in_range / voiced_total) >= 0.50
-
-
-def load_thresholds(thresholds_path):
-    if thresholds_path and os.path.exists(thresholds_path):
-        with open(thresholds_path) as f:
-            t = json.load(f)
-        amber = t.get('youden', 0.50)
-        red = t.get('low_fpr', 0.70)
-        return amber, red, thresholds_path
-    return 0.50, 0.70, None
+SMOOTHING = 3          # shorter smoothing = faster response
+ENERGY_GATE_RMS = 0.005
 
 
 def main():
     parser = argparse.ArgumentParser(description='SafeCommute AI — Live Demo')
     parser.add_argument('--model', type=str, default=MODEL_SAVE_PATH)
-    parser.add_argument('--thresholds', type=str, default=None)
-    parser.add_argument('--duration', type=int, default=60)
+    parser.add_argument('--threshold', type=float, default=0.55,
+                        help='Alert threshold (default 0.55, lower = more sensitive)')
+    parser.add_argument('--duration', type=int, default=120)
     args = parser.parse_args()
-
-    # Auto-detect threshold file
-    if args.thresholds is None and args.model.startswith('models/'):
-        env = os.path.basename(args.model).replace('_model.pth', '')
-        candidate = f'models/{env}_thresholds.json'
-        if os.path.exists(candidate):
-            args.thresholds = candidate
 
     if not os.path.exists(args.model):
         print(f"Error: {args.model} not found.")
@@ -109,7 +57,8 @@ def main():
             s = json.load(f)
         mean, std = s['mean'], s['std']
 
-    amber, red, thresh_source = load_thresholds(args.thresholds)
+    red = args.threshold
+    amber = red - 0.15
 
     p = pyaudio.PyAudio()
     try:
@@ -127,87 +76,49 @@ def main():
     print(f"  SafeCommute AI — Live Demo ({args.duration}s)")
     print(f"  Model: {os.path.basename(args.model)}")
     print(f"  Mic: {mic_name}")
-    print(f"  Features: PCEN (gain-invariant, no mic calibration needed)")
-    if thresh_source:
-        print(f"  Thresholds: amber={amber:.3f}, red={red:.3f} (from {thresh_source})")
-    else:
-        print(f"  Thresholds: amber={amber:.2f}, red={red:.2f} (default)")
+    print(f"  Alert >= {red:.2f} | Warning >= {amber:.2f}")
     print(f"  Privacy: RAM only, no audio saved")
-    print(f"  Speech-aware: threshold -> {SPEECH_THRESH_BOOST:.2f} during speech")
     print(f"{'='*58}\n")
 
     audio_buf = np.zeros(BUFFER, dtype=np.float32)
     history = collections.deque(maxlen=SMOOTHING)
-    start_time = time.time()
     last_status = None
 
-    # ── Auto-calibrate: measure ambient baseline for 3 seconds ────────
-    print("  Calibrating ambient baseline (3s — stay quiet)...")
-    cal_probs = []
-    for _ in range(3):
-        data = stream.read(CHUNK, exception_on_overflow=False)
-        new = np.frombuffer(data, dtype=np.float32)
-        audio_buf = np.roll(audio_buf, -CHUNK)
-        audio_buf[-CHUNK:] = new
-        rms = float(np.sqrt(np.mean(audio_buf ** 2)))
-        if rms >= ENERGY_GATE_RMS:
-            feat = preprocess(audio_buf, mean, std)
-            with torch.no_grad():
-                p = torch.softmax(model(feat), dim=1)[0][1].item()
-            cal_probs.append(p)
-    baseline_prob = float(np.mean(cal_probs)) if cal_probs else 0.0
-    print(f"  Baseline: {baseline_prob:.3f} (will be subtracted from raw output)\n")
-
     try:
-        while time.time() - start_time < args.duration:
+        while time.time() - time.time() < args.duration or True:
             data = stream.read(CHUNK, exception_on_overflow=False)
             new = np.frombuffer(data, dtype=np.float32)
             audio_buf = np.roll(audio_buf, -CHUNK)
             audio_buf[-CHUNK:] = new
 
             rms = float(np.sqrt(np.mean(audio_buf ** 2)))
-            remaining = max(0, args.duration - (time.time() - start_time))
             t = time.strftime('%H:%M:%S')
 
-            # Energy gating on raw audio — silence = auto-safe
             if rms < ENERGY_GATE_RMS:
-                print(f"  [{t}]  SAFE    [--------------------] 0.00 (silent)  [{remaining:.0f}s]", end='\r')
+                print(f"  [{t}]  SAFE    [--------------------] 0.00 (silent)     ", end='\r')
                 history.clear()
                 last_status = 'silent'
                 continue
 
-            # Speech detection: raise threshold during normal conversation
-            is_speech = detect_speech(audio_buf)
-
-            # PCEN handles gain normalization — no mic_scale needed
             feat = preprocess(audio_buf, mean, std)
             with torch.no_grad():
-                raw_prob = torch.softmax(model(feat), dim=1)[0][1].item()
-
-            # Gentle baseline correction — subtract half the ambient floor
-            # to reduce resting probability without killing sensitivity
-            prob = max(0.0, raw_prob - baseline_prob * 0.5)
+                prob = torch.softmax(model(feat), dim=1)[0][1].item()
 
             history.append(prob)
             smoothed = float(np.mean(history))
 
-            # Adaptive thresholding
-            eff_amber = (SPEECH_THRESH_BOOST - 0.10) if is_speech else amber
-            eff_red = SPEECH_THRESH_BOOST if is_speech else red
-            speech_tag = "SPK" if is_speech else "   "
-
             bar = '#' * int(smoothed * 20) + '-' * (20 - int(smoothed * 20))
 
-            if smoothed >= eff_red:
+            if smoothed >= red:
                 if last_status != 'red':
                     print()
-                print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  ESCALATION")
+                print(f"  [{t}]  ALERT   [{bar}] {smoothed:.2f} (raw={prob:.2f}, rms={rms:.3f})")
                 last_status = 'red'
-            elif smoothed >= eff_amber:
-                print(f"  [{t}]  WARNING [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  [{remaining:.0f}s]", end='\r')
+            elif smoothed >= amber:
+                print(f"  [{t}]  WARNING [{bar}] {smoothed:.2f} (raw={prob:.2f}, rms={rms:.3f})   ", end='\r')
                 last_status = 'amber'
             else:
-                print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f}) {speech_tag}  [{remaining:.0f}s]", end='\r')
+                print(f"  [{t}]  SAFE    [{bar}] {smoothed:.2f} (raw={prob:.2f}, rms={rms:.3f})   ", end='\r')
                 if last_status == 'red':
                     print()
                 last_status = 'safe'
