@@ -10,6 +10,7 @@ Implements:
 import os
 import sys
 import json
+import math
 import hashlib
 import argparse
 from datetime import datetime
@@ -242,7 +243,7 @@ def main():
         "benchmark_ok": benchmark_ok,
         "benchmark_drift": benchmark_drift,
         "metrics": {
-            "auc": None if (auc != auc) else float(auc),
+            "auc": None if math.isnan(auc) else float(auc),
             "accuracy": float(acc),
             "f1": float(f1),
             "hard_negative_fpr": hard_neg_fpr,

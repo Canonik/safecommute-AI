@@ -86,7 +86,6 @@ HARD_NEGATIVE_SOURCES = {
 NOISE_INJECT_PROB = 0.3    # Probability of injecting noise into a sample
 NOISE_SNR_MIN = 0.0        # Minimum SNR in dB (loudest noise)
 NOISE_SNR_MAX = 20.0       # Maximum SNR in dB (quietest noise)
-EPSILON = 1e-8
 
 
 class FocalLoss(nn.Module):
@@ -175,6 +174,7 @@ def build_targeted_sampler(dataset, hard_neg_quota):
     Build a weighted sampler that increases the sampling frequency of hard
     negative safe examples to approximately `hard_neg_quota` of drawn samples.
     """
+    # hard_neg_quota must be < 1.0 (at 1.0 denominator becomes zero)
     if hard_neg_quota < 0.0 or hard_neg_quota >= 1.0 or len(dataset) == 0:
         return None, 0, 0, 1.0
     if hard_neg_quota == 0.0:
@@ -195,7 +195,7 @@ def build_targeted_sampler(dataset, hard_neg_quota):
         return None, n_hard, n_total, 1.0
 
     n_other = n_total - n_hard
-    target_ratio = hard_neg_quota / max(EPSILON, (1.0 - hard_neg_quota))
+    target_ratio = hard_neg_quota / (1.0 - hard_neg_quota)
     multiplier = float(max(1.0, (target_ratio * n_other) / n_hard))
     for i in hard_indices:
         weights[i] = multiplier
