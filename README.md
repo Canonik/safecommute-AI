@@ -8,13 +8,13 @@ Deployable to any acoustic environment via fine-tuning. Base model trained on un
 
 ---
 
-## Results (v2 — clean data, no acted speech, no leakage)
+## Results (reliability-first cycle)
 
 | Metric | Train | Val | Test | Gap |
 |--------|-------|-----|------|-----|
-| AUC-ROC | 0.928 | 0.819 | **0.856** | 0.072 |
-| Accuracy | 0.746 | 0.660 | 0.675 | 0.071 |
-| F1 | 0.752 | 0.660 | 0.684 | 0.068 |
+| AUC-ROC | - | - | **0.804** | - |
+| Accuracy | - | - | **0.703** | - |
+| F1 | - | - | **0.716** | - |
 
 **3-seed evaluation**: AUC = 0.844 +/- 0.019, Accuracy = 0.639 +/- 0.038, F1 = 0.644 +/- 0.043.
 
@@ -77,10 +77,17 @@ Multi-Scale Pooling:
 Classifier: Dropout(0.3) -> Linear(384->2)
 ```
 
-### Training Recipe
+### Current Champion (provisional)
 
-- **Loss**: Focal loss (gamma=3) with dynamic class weights + label smoothing (0.1)
+- **Config:** `--focal --cosine --strong-aug --gamma 0.5 --noise-inject --seed 42`
+- **Status:** best current tradeoff for deployment-like noise, but still fails on laughter and needs field validation.
+
+### Reliability-First Training/Evaluation
+
+- **Loss**: Focal loss (gamma=0.5 current champion) with dynamic class weights
 - **Augmentation**: SpecAugment (freq/time masking) per-sample in DataLoader + batch GPU ops (Gaussian noise, time shift, frequency dropout)
+- **Targeted sampling**: optional hard-negative minibatch quota (`--hard-neg-quota`) for safe confusers (laughter/crowd/speech/metro)
+- **Noise injection**: optional multi-source ambient bank (`--noise-sources yt_metro,yt_bar,yt_bus`) with configurable SNR
 - **Optimizer**: AdamW (lr=3e-4, weight_decay=1e-4), cosine annealing warm restarts
 - **Regularization**: Dropout 0.3, gradient clipping (max_norm=1.0), early stopping (patience=6)
 - **Data**: Clean spectrograms only (no augmentation at prep time)
@@ -143,8 +150,12 @@ PYTHONPATH=. python safecommute/pipeline/prepare_youtube_data.py # YouTube
 PYTHONPATH=. python safecommute/pipeline/prepare_violence_data.py # Violence
 PYTHONPATH=. python safecommute/pipeline/verify_pipeline.py      # Verify
 
-# Train
-PYTHONPATH=. python safecommute/pipeline/train.py --focal --cosine --strong-aug --gamma 3.0
+# Train (Cycle 6 provisional champion)
+PYTHONPATH=. python safecommute/pipeline/train.py --focal --cosine --strong-aug --gamma 0.5 --noise-inject --seed 42
+
+# Reliability protocol (freeze immutable benchmark + evaluate gates)
+PYTHONPATH=. python research/experiments/reliability_protocol.py --model safecommute_edge_model.pth --freeze-benchmark
+PYTHONPATH=. python research/experiments/reliability_protocol.py --model safecommute_edge_model.pth --enforce-gates
 
 # Analyze
 PYTHONPATH=. python safecommute/pipeline/analyze.py
