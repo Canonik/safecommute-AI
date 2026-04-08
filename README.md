@@ -128,7 +128,7 @@ PYTHONPATH=. python safecommute/pipeline/inference.py
 
 Key discovery: focal loss gamma=3.0 was catastrophically over-regularized, causing 0% accuracy on safe hard negatives (laughter, crowd, speech). Lowering to gamma=0.5 + adding metro noise injection during training produced the best deployable model.
 
-See `research/experiment_cycles.md` for full details.
+See `safecommute/docs/experiment_cycles.md` for full details.
 
 ---
 

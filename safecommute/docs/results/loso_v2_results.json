@@ -1,0 +1,141 @@
+{
+  "method": "Leave-One-Source-Out (LOSO) v2",
+  "results": [
+    {
+      "source": "as_applause",
+      "auc": NaN,
+      "accuracy": 0.6612001490868431,
+      "f1": 0.7960511554857528,
+      "n_samples": 2683
+    },
+    {
+      "source": "as_cheering",
+      "auc": NaN,
+      "accuracy": 0.7186582809224319,
+      "f1": 0.8363015369602342,
+      "n_samples": 2385
+    },
+    {
+      "source": "as_crowd",
+      "auc": NaN,
+      "accuracy": 0.11116091438816675,
+      "f1": 0.200080677692618,
+      "n_samples": 2231
+    },
+    {
+      "source": "as_explosion",
+      "auc": NaN,
+      "accuracy": 0.7886992348440259,
+      "f1": 0.8818690358670616,
+      "n_samples": 1699
+    },
+    {
+      "source": "as_glass",
+      "auc": NaN,
+      "accuracy": 0.8052822371828068,
+      "f1": 0.8921399885255306,
+      "n_samples": 1931
+    },
+    {
+      "source": "as_gunshot",
+      "auc": NaN,
+      "accuracy": 0.9026812313803376,
+      "f1": 0.9488517745302714,
+      "n_samples": 2014
+    },
+    {
+      "source": "as_laughter",
+      "auc": NaN,
+      "accuracy": 0.060043668122270744,
+      "f1": 0.11328527291452112,
+      "n_samples": 1832
+    },
+    {
+      "source": "as_music",
+      "auc": NaN,
+      "accuracy": 0.5577912962096396,
+      "f1": 0.7161309702613398,
+      "n_samples": 2137
+    },
+    {
+      "source": "as_screaming",
+      "auc": NaN,
+      "accuracy": 0.8075581395348838,
+      "f1": 0.893534898681248,
+      "n_samples": 1720
+    },
+    {
+      "source": "as_shout",
+      "auc": NaN,
+      "accuracy": 0.5209074733096085,
+      "f1": 0.6849956127522667,
+      "n_samples": 2248
+    },
+    {
+      "source": "as_singing",
+      "auc": NaN,
+      "accuracy": 0.45323741007194246,
+      "f1": 0.6237623762376238,
+      "n_samples": 2224
+    },
+    {
+      "source": "as_speech",
+      "auc": NaN,
+      "accuracy": 0.20492565055762083,
+      "f1": 0.34014654839953723,
+      "n_samples": 2152
+    },
+    {
+      "source": "as_yell",
+      "auc": NaN,
+      "accuracy": 0.6577903682719547,
+      "f1": 0.7935748462064252,
+      "n_samples": 1765
+    },
+    {
+      "source": "bg",
+      "auc": NaN,
+      "accuracy": 0.5886666666666667,
+      "f1": 0.741082668904742,
+      "n_samples": 3000
+    },
+    {
+      "source": "esc",
+      "auc": NaN,
+      "accuracy": 0.50375,
+      "f1": 0.6699916874480466,
+      "n_samples": 800
+    },
+    {
+      "source": "hns",
+      "auc": NaN,
+      "accuracy": 0.7941090696996209,
+      "f1": 0.8852405721716515,
+      "n_samples": 3429
+    },
+    {
+      "source": "viol",
+      "auc": 0.5814753079781577,
+      "accuracy": 0.47763419483101394,
+      "f1": 0.34814326374864857,
+      "n_samples": 2012
+    },
+    {
+      "source": "yt_metro",
+      "auc": NaN,
+      "accuracy": 0.4006878761822872,
+      "f1": 0.5721301411909147,
+      "n_samples": 3489
+    },
+    {
+      "source": "yt_scream",
+      "auc": NaN,
+      "accuracy": 0.7203597710547833,
+      "f1": 0.8374524714828897,
+      "n_samples": 1223
+    }
+  ],
+  "mean_auc": 0.5814753079781577,
+  "std_auc": 0.0,
+  "timestamp": "2026-04-05T22:53:32.217057"
+}
