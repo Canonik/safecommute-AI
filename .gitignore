@@ -176,12 +176,29 @@ prepared_data/
 *.pt
 *.json
 !safecommute/**/*.json
+!web/**/*.json
 roc_curve.png
 calibration_plots.png
 experiments_log.txt
 SESSION_REPORT.md
 CLAUDE.md
 .claude/
+
+# Internal planning / strategy / pitch docs (not for public repo)
+selling.md
+update.md
+next_steps.md
+docs/gamma_prompt.md
+
+# Web (Next.js)
+web/node_modules/
+web/.next/
+web/out/
+web/.env*
+web/.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+!web/lib/
 
 # Analysis outputs (generated, not tracked — run comprehensive_analysis.py)
 analysis/
