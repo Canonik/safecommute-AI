@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { MagneticButton } from "@/components/magnetic-button";
-import { GITHUB_URL, MAILTO_PILOT } from "@/lib/utils";
+import { DASHBOARD_URL, GITHUB_URL } from "@/lib/utils";
 
 const LINKS = [
   { href: "#how", label: "How it works" },
@@ -36,8 +36,8 @@ export function Nav() {
             GitHub
           </a>
         </nav>
-        <MagneticButton href={MAILTO_PILOT} variant="primary" className="text-xs md:text-sm px-4 py-2 md:px-5 md:py-3">
-          Request pilot →
+        <MagneticButton href={DASHBOARD_URL} variant="primary" className="text-xs md:text-sm px-4 py-2 md:px-5 md:py-3">
+          Open dashboard →
         </MagneticButton>
       </div>
     </motion.header>

@@ -1,49 +1,86 @@
 "use client";
 
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { MagneticButton } from "@/components/magnetic-button";
-import { GITHUB_URL, MAILTO_PILOT } from "@/lib/utils";
+import {
+  DASHBOARD_URL,
+  DEMO_DOWNLOAD_URL,
+  MAILTO_PILOT,
+  PRICE_PER_RUN_EUR,
+  PRICE_SUBSCRIPTION_EUR,
+} from "@/lib/utils";
 
-const TIERS = [
+type Tier = {
+  name: string;
+  price: string;
+  per: string;
+  tag: string;
+  bg: string;
+  fg: string;
+  featured?: boolean;
+  features: string[];
+  caveat: string;
+  cta:
+    | { kind: "link"; label: string; href: string; external?: boolean; variant: "primary" | "outline" | "ghost" }
+    | { kind: "checkout"; label: string; plan: "subscription" | "per_run"; variant: "primary" | "outline" | "ghost" };
+};
+
+const TIERS: Tier[] = [
   {
-    name: "Free",
-    price: "$0",
-    per: "forever",
-    tag: "Demo / evaluation",
-    bg: "bg-bauhaus-blue",
-    fg: "text-paper",
+    name: "Demo",
+    price: "€0",
+    per: "download",
+    tag: "Evaluation",
+    bg: "bg-paper",
+    fg: "text-ink",
     features: [
       "Base model (safecommute_v2.pth, 7 MB)",
-      "Inference runtime (CLI)",
-      "Live demo script",
-      "Full documentation",
+      "short.md — architecture + usage",
+      "Runs on any CPU, no cloud",
+      "Inference code in the public repo",
     ],
-    caveat: "~72% FP on speech. A working demo, not a deployment.",
-    cta: { label: "View on GitHub", href: GITHUB_URL, external: true, variant: "ghost" as const },
+    caveat: "~72% FP on speech before fine-tuning. Evaluate, don't deploy.",
+    cta: { kind: "link", label: "Download demo ↓", href: DEMO_DOWNLOAD_URL, variant: "ghost" },
   },
   {
-    name: "Pro",
-    price: "$200",
-    per: "/ site / year",
-    tag: "Recommended",
+    name: "Per run",
+    price: `€${PRICE_PER_RUN_EUR}`,
+    per: "one fine-tune",
+    tag: "Pay as you go",
     bg: "bg-bauhaus-yellow",
     fg: "text-ink",
+    features: [
+      "Upload ambient clips to your site",
+      "One calibrated model per purchase",
+      "Threshold recommendations included",
+      "No commitment",
+    ],
+    caveat: "Stack credits: buy 3, fine-tune 3 sites or iterate on the same one.",
+    cta: { kind: "checkout", label: `Pay €${PRICE_PER_RUN_EUR} →`, plan: "per_run", variant: "primary" },
+  },
+  {
+    name: "Subscription",
+    price: `€${PRICE_SUBSCRIPTION_EUR}`,
+    per: "unlimited runs, one site",
+    tag: "Recommended",
+    bg: "bg-bauhaus-blue",
+    fg: "text-paper",
     featured: true,
     features: [
-      "Self-serve calibration tool",
-      "Threshold optimization (Youden's J / F1 / low-FPR)",
-      "Base model updates",
-      "Unlimited re-calibrations per site",
+      "Unlimited fine-tune runs on one site",
+      "Re-tune after mic swaps, seasonal noise, retrofits",
+      "Priority queue",
+      "All future threshold tooling",
     ],
-    caveat: "Operators never touch Python. Record ambient → click calibrate → deploy.",
-    cta: { label: "Request pilot →", href: MAILTO_PILOT, variant: "primary" as const },
+    caveat: "Break-even vs per-run at 5 tunes. Most sites tune 3–6× in year one.",
+    cta: { kind: "checkout", label: `Pay €${PRICE_SUBSCRIPTION_EUR} →`, plan: "subscription", variant: "ghost" },
   },
   {
     name: "Enterprise",
     price: "Custom",
-    per: "from ~$2K / year",
-    tag: "Fleet & SLA",
+    per: "fleet & SLA",
+    tag: "50+ sites",
     bg: "bg-ink",
     fg: "text-paper",
     features: [
@@ -52,8 +89,8 @@ const TIERS = [
       "Centralized fleet dashboard",
       "Priority support + SLA",
     ],
-    caveat: "For 50+ sites, multi-vertical rollouts, compliance reporting.",
-    cta: { label: "Contact sales", href: MAILTO_PILOT, variant: "outline" as const },
+    caveat: "For multi-vertical rollouts and compliance reporting.",
+    cta: { kind: "link", label: "Contact sales", href: MAILTO_PILOT, variant: "outline" },
   },
 ];
 
@@ -76,22 +113,31 @@ export function Pricing() {
             </h2>
           </div>
           <div className="col-span-12 md:col-span-3 font-body text-sm leading-snug">
-            Annual subscription covers unlimited re-calibrations — renovations, new rolling stock, mic replacements all
-            trigger a re-run.
+            Pay per run for one-off calibration, or subscribe for unlimited runs on a single site —
+            renovations, new rolling stock, mic replacements all trigger a re-run.
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {TIERS.map((t, i) => (
-            <TierCard key={t.name} tier={t} delay={i * 0.08} />
+            <TierCard key={t.name} tier={t} delay={i * 0.06} />
           ))}
+        </div>
+
+        <div className="mt-10 border-3 border-ink p-4 md:p-5 flex flex-wrap items-center gap-4 font-mono text-[11px] uppercase tracking-widest bg-paper">
+          <span className="inline-block h-3 w-3 bg-bauhaus-red" />
+          <span>Already got a credit?</span>
+          <a
+            href={DASHBOARD_URL}
+            className="ml-auto border-3 border-ink bg-ink text-paper px-3 py-1.5 font-display uppercase text-xs tracking-tight hover:bg-bauhaus-red transition-colors"
+          >
+            Open dashboard →
+          </a>
         </div>
       </div>
     </section>
   );
 }
-
-type Tier = (typeof TIERS)[number];
 
 function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -101,6 +147,8 @@ function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
   const sy = useSpring(my, { stiffness: 120, damping: 18 });
   const rotX = useTransform(sy, [-0.5, 0.5], [6, -6]);
   const rotY = useTransform(sx, [-0.5, 0.5], [-6, 6]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const onMove = (e: React.MouseEvent) => {
     const r = ref.current?.getBoundingClientRect();
@@ -113,6 +161,32 @@ function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
     my.set(0);
   };
 
+  const clickCheckout = async (plan: "subscription" | "per_run") => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: plan }),
+      });
+      if (res.status === 401) {
+        window.location.href = `/sign-in?next=${encodeURIComponent("/dashboard/billing")}`;
+        return;
+      }
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: "checkout failed" }));
+        throw new Error(j.error ?? "checkout failed");
+      }
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div
       ref={ref}
@@ -123,7 +197,7 @@ function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
       viewport={{ once: true, amount: 0.3 }}
       transition={{ delay, duration: 0.6 }}
       style={{ rotateX: rotX, rotateY: rotY, transformStyle: "preserve-3d", transformPerspective: 1000 }}
-      className={`relative border-3 border-ink p-6 md:p-8 ${tier.bg} ${tier.fg} ${
+      className={`relative border-3 border-ink p-6 md:p-7 ${tier.bg} ${tier.fg} ${
         tier.featured ? "md:-translate-y-3 shadow-[8px_8px_0_0_#0a0a0a]" : ""
       }`}
     >
@@ -137,13 +211,13 @@ function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
         </motion.div>
       )}
       <div className="font-mono text-[11px] uppercase tracking-widest opacity-80">{tier.tag}</div>
-      <div className="font-display uppercase text-4xl md:text-5xl mt-1 leading-none">{tier.name}</div>
-      <div className="mt-6 flex items-baseline gap-2">
-        <div className="font-display text-5xl md:text-6xl leading-none tracking-tight">{tier.price}</div>
+      <div className="font-display uppercase text-3xl md:text-4xl mt-1 leading-none">{tier.name}</div>
+      <div className="mt-5 flex items-baseline gap-2">
+        <div className="font-display text-4xl md:text-5xl leading-none tracking-tight">{tier.price}</div>
         <div className="font-mono text-[11px] uppercase tracking-widest opacity-80">{tier.per}</div>
       </div>
 
-      <ul className="mt-6 space-y-2 font-body text-sm">
+      <ul className="mt-5 space-y-2 font-body text-sm">
         {tier.features.map((f) => (
           <li key={f} className="flex items-start gap-2">
             <span className="inline-block mt-2 h-1.5 w-1.5 bg-current opacity-80 flex-shrink-0" />
@@ -152,17 +226,32 @@ function TierCard({ tier, delay }: { tier: Tier; delay: number }) {
         ))}
       </ul>
 
-      <div className="mt-6 pt-4 border-t-3 border-current opacity-90 font-body text-sm italic">{tier.caveat}</div>
+      <div className="mt-5 pt-3 border-t-3 border-current opacity-90 font-body text-sm italic">{tier.caveat}</div>
 
-      <div className="mt-6">
-        <MagneticButton
-          href={tier.cta.href}
-          variant={tier.cta.variant}
-          external={tier.cta.external}
-          className="w-full justify-center"
-        >
-          {tier.cta.label}
-        </MagneticButton>
+      <div className="mt-5">
+        {tier.cta.kind === "link" ? (
+          <MagneticButton
+            href={tier.cta.href}
+            variant={tier.cta.variant}
+            external={tier.cta.external}
+            className="w-full justify-center"
+          >
+            {tier.cta.label}
+          </MagneticButton>
+        ) : (
+          <MagneticButton
+            onClick={() => clickCheckout(tier.cta.kind === "checkout" ? tier.cta.plan : "per_run")}
+            variant={tier.cta.variant}
+            className="w-full justify-center"
+          >
+            {loading ? "Opening…" : tier.cta.label}
+          </MagneticButton>
+        )}
+        {error && (
+          <div className="mt-3 font-mono text-[11px] uppercase tracking-widest text-bauhaus-red">
+            {error}
+          </div>
+        )}
       </div>
     </motion.div>
   );

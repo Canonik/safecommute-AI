@@ -6,7 +6,7 @@ import { WaveformCanvas } from "@/components/waveform-canvas";
 import { CountUp } from "@/components/count-up";
 import { MagneticButton } from "@/components/magnetic-button";
 import { Circle, Square, Triangle } from "@/components/ui/shapes";
-import { GITHUB_URL, MAILTO_PILOT } from "@/lib/utils";
+import { DASHBOARD_URL, DEMO_DOWNLOAD_URL, GITHUB_URL } from "@/lib/utils";
 
 const HEADLINE = ["HEARS", "WHAT", "CCTV", "CAN'T."];
 
@@ -100,8 +100,11 @@ export function Hero() {
               transition={{ delay: 0.85, duration: 0.6 }}
               className="mt-8 flex flex-wrap gap-3"
             >
-              <MagneticButton href={MAILTO_PILOT} variant="primary">
-                Request calibration pilot →
+              <MagneticButton href={DEMO_DOWNLOAD_URL} variant="primary">
+                Download demo ↓
+              </MagneticButton>
+              <MagneticButton href={DASHBOARD_URL} variant="ghost">
+                Open dashboard →
               </MagneticButton>
               <MagneticButton href={GITHUB_URL} variant="outline" external>
                 View on GitHub

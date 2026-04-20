@@ -11,3 +11,11 @@ export const MAILTO_PILOT =
 export const MAILTO_CONTACT = "mailto:alessandro.canonico2@studbocconi.it";
 
 export const GITHUB_URL = "https://github.com/Canonik/safecommute-AI";
+
+export const DEMO_DOWNLOAD_URL = "/demo/safecommute-v2-demo.zip";
+
+export const DASHBOARD_URL = "/dashboard";
+export const SIGN_IN_URL = "/sign-in";
+
+export const PRICE_SUBSCRIPTION_EUR = 100;
+export const PRICE_PER_RUN_EUR = 23;

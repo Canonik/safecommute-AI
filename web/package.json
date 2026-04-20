@@ -1,12 +1,14 @@
 {
   "name": "safecommute-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/build-demo-bundle.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "bundle:demo": "node scripts/build-demo-bundle.mjs"
   },
   "dependencies": {
     "next": "14.2.18",
@@ -16,7 +18,12 @@
     "lucide-react": "^0.460.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.5",
-    "class-variance-authority": "^0.7.1"
+    "class-variance-authority": "^0.7.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "@supabase/ssr": "^0.5.2",
+    "stripe": "^17.3.1",
+    "@stripe/stripe-js": "^4.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
@@ -27,6 +34,8 @@
     "postcss": "^8.4.49",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.18"
+    "eslint-config-next": "14.2.18",
+    "archiver": "^7.0.1",
+    "@types/archiver": "^6.0.3"
   }
 }
