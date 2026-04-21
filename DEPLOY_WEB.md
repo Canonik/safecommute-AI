@@ -14,7 +14,7 @@ All commands assume **`cwd = web/`** (i.e. `cd web` from the repo root first).
 
 - `https://safecommute-ai.vercel.app` — public landing page (Bauhaus).
 - `https://safecommute-ai.vercel.app/demo/safecommute-v2-demo.zip` — 6.5 MB demo bundle (model + `short.md`).
-- `https://safecommute-ai.vercel.app/dashboard` — authenticated dashboard. Magic-link sign-in, €100 subscription OR €23 per-run via Stripe Checkout, audio clip uploads to Supabase Storage, queued fine-tune jobs.
+- `https://safecommute-ai.vercel.app/dashboard` — authenticated dashboard. Magic-link sign-in, one-time €100 site unlock (unlimited runs on one site) OR one-time €23 per-run credit via Stripe Checkout, audio clip uploads to Supabase Storage, queued fine-tune jobs.
 
 All dashboard data lives in Supabase — nothing user-generated is stored on Vercel.
 
@@ -71,12 +71,14 @@ Rebuild the zip whenever either `safecommute_v2.pth` or `short.md` changes (the 
 
    | Name | Price | Env var |
    |---|---|---|
-   | SafeCommute Subscription — one site | 100 EUR | `STRIPE_PRICE_SUBSCRIPTION` |
+   | SafeCommute Site Unlock — unlimited runs, one site | 100 EUR | `STRIPE_PRICE_SUBSCRIPTION` |
    | SafeCommute Per-run credit | 23 EUR | `STRIPE_PRICE_PER_RUN` |
 
    Open each product after creating and copy the `price_1...` id (NOT the `prod_1...` id).
 
-   > The "subscription" label is a product name, not a Stripe recurring subscription. Keeps the UX simple: user pays once, dashboard flags `subscription_active = true`, unlimited runs forever for that user. To switch to real recurring later, change the Stripe price to recurring and flip the Checkout `mode` to `"subscription"` in `web/app/api/checkout/route.ts`.
+   > Both tiers are **one-time payments by design** — there is no recurring charge and no renewal. €100 unlocks unlimited fine-tune runs on one site forever (`subscription_active = true` on `entitlements`). €23 increments `per_run_credits` by one. The Stripe product labelled "Subscription" is a product name only; its price is configured as one-time mode. Repeat revenue comes from new-site unlocks and per-run top-ups — do not flip either product to Stripe recurring mode without an explicit product decision.
+   >
+   > The env var is still named `STRIPE_PRICE_SUBSCRIPTION` for historical reasons; future refactor should rename it to `STRIPE_PRICE_SITE_UNLOCK`.
 
 3. **Developers → API keys** — **Reveal test key** and use the copy icon (don't click-and-drag, displayed text is sometimes truncated):
 
@@ -260,6 +262,15 @@ npx vercel --prod
 ```
 Other cause: `No such price: 'price_...'` → `STRIPE_PRICE_SUBSCRIPTION` / `STRIPE_PRICE_PER_RUN` belongs to a different Stripe account. Confirm you're in Test mode in both Stripe and Vercel env vars.
 
+Third cause (**observed 2026-04-21**): `No such price: 'prod_...'` — you pasted a **product id** (`prod_…`) instead of a **price id** (`price_…`). Stripe's `line_items[0].price` only accepts price ids. In Stripe Dashboard → Products → click the product → scroll to the **Pricing** section → copy the id that starts with `price_1…`. Then rotate both `STRIPE_PRICE_*` vars and redeploy:
+```bash
+npx vercel env rm STRIPE_PRICE_PER_RUN
+npx vercel env add STRIPE_PRICE_PER_RUN          # paste price_1... sensitive=No
+npx vercel env rm STRIPE_PRICE_SUBSCRIPTION
+npx vercel env add STRIPE_PRICE_SUBSCRIPTION     # paste price_1... sensitive=No
+npx vercel --prod
+```
+
 ### "Email rate limit exceeded" at sign-in
 Supabase's built-in email service caps at ~4 sends/hour per IP+email. Either wait an hour, stay signed in (sessions persist so no new link needed), or configure a custom SMTP provider (Resend/SendGrid) in Supabase → Auth → SMTP Settings. Do this before public launch.
 
@@ -280,15 +291,46 @@ It's a follow stream. Trigger the failing request (e.g. click the checkout butto
 ### Sign-in succeeds but Stripe webhook doesn't grant credits
 The webhook at `/api/stripe/webhook` wasn't wired, or the `STRIPE_WEBHOOK_SECRET` doesn't match. Go to Stripe → Webhooks → click your endpoint → **Send test webhook** → event `checkout.session.completed`. Then check Vercel logs. Signing-secret mismatch shows as `invalid signature` in the response.
 
+### Webhook delivery shows `200 OK` in Stripe but `payments` and `entitlements` stay empty in Supabase (**observed 2026-04-21**)
+The route returned 200 without throwing — but the two `upsert` calls in [app/api/stripe/webhook/route.ts](web/app/api/stripe/webhook/route.ts) are **not error-checked**, so a silently-blocked insert still returns 200 to Stripe. Root cause is almost always that `SUPABASE_SERVICE_ROLE_KEY` is set to the **`anon`** key instead of the **`service_role`** key (both are `eyJhbGci…` JWTs ~200 chars, trivial to paste-slip). With the anon key, RLS blocks inserts into `payments` / `entitlements` because the schema allows only self-read, no self-insert — only `service_role` bypasses RLS.
+
+**Fix:**
+
+1. In Supabase Dashboard → **Project Settings → API**, copy the value under **`service_role` `secret`** (not `anon`). Confirm by pasting the JWT's middle segment into <https://jwt.io> — payload must read `"role":"service_role"`.
+2. Rotate the Vercel env var:
+   ```bash
+   cd web
+   npx vercel env rm SUPABASE_SERVICE_ROLE_KEY     # all envs, y
+   npx vercel env add SUPABASE_SERVICE_ROLE_KEY    # paste fresh, sensitive=Yes, all 3 envs
+   npx vercel --prod
+   ```
+3. Wait for the deployment to show `Ready`, then **Stripe → Webhooks → your endpoint → Event deliveries →** click the stuck `checkout.session.completed` row → **Resend** (top right). The replay hits the fixed deployment and grants the credit without re-charging the card.
+
+After the resend succeeds, Supabase `payments` has a new row with `status='paid'` and `entitlements.per_run_credits` bumps by 1 (or `subscription_active=true` for the €100 tier).
+
 ---
 
 ## 9. Post-deploy smoke test
 
-- [ ] Landing in incognito — animations render, Bauhaus disc follows cursor.
-- [ ] "Download demo ↓" → 6.5 MB zip → unzipped contains `safecommute_v2.pth` + `short.md`.
-- [ ] "Open dashboard →" → redirects to `/sign-in` (not the offline card).
-- [ ] Enter email → magic link lands in inbox → clicking returns to `/dashboard`.
-- [ ] `/dashboard/billing` → "Pay €23 →" → Stripe Checkout → card `4242 4242 4242 4242` any future date any CVC → returns with "Payment received" banner + `1 credit`.
-- [ ] Supabase Table Editor shows rows in `payments`, `entitlements`.
+Status as of **2026-04-21** on `https://safecommute-ai.vercel.app`: paid flow is end-to-end green. Resume from the first unchecked item.
+
+- [x] Landing in incognito — animations render, Bauhaus disc follows cursor.
+- [x] "Download demo ↓" → 6.5 MB zip → unzipped contains `safecommute_v2.pth` + `short.md`.
+- [x] "Open dashboard →" → redirects to `/sign-in` (not the offline card).
+- [x] Enter email → magic link lands in inbox → clicking returns to `/dashboard`.
+- [x] `/dashboard/billing` → "Pay €23 →" → Stripe Checkout → card `4242 4242 4242 4242` any future date any CVC → returns with "Payment received" banner + `1 credit`. *(Required two fixes: §3.2 `prod_` → `price_` for both Stripe price env vars, and §8 `SUPABASE_SERVICE_ROLE_KEY` rotation so the webhook writes weren't dropped.)*
+- [x] Supabase Table Editor shows rows in `payments`, `entitlements`.
 - [ ] New site → drop 3 WAVs → "Run fine-tune" → queued job card appears, credit drops to 0.
 - [ ] Supabase shows rows in `sites`, `audio_clips`, `finetune_jobs`; files in Storage → `audio-uploads/<uid>/<site-id>/`.
+
+After the two remaining items pass, the job will stay at `status='queued'` forever — that is expected. §6 (fine-tune worker + `/api/finetune/[id]/download` route + `fine-tuned-models` Storage bucket) is the next workstream and the last blocker before a paying customer can complete a flow.
+
+### Env var hygiene (found 2026-04-21)
+
+Partial drift across environments — doesn't block production but will break preview deploys:
+
+- Prod **and** Preview: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`.
+- Prod only (missing from Preview): `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_PER_RUN`, `STRIPE_PRICE_SUBSCRIPTION`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **None set for Development.** `npx vercel env pull .env.local` without `--environment=production` returns all empty strings.
+
+When you need preview URLs working (e.g. PR preview deploys), re-add each Prod-only var with all three environment targets selected.

@@ -1,0 +1,28 @@
+SafeCommute AI — FP-rate claim validation  (device=cuda)
+
+==========================================================
+Claim 1: base model speech FPR ~72%
+==========================================================
+  speech samples:         378
+  speech FPR @ thr=0.50:  0.717   [PASS  0.60 ≤ fpr ≤ 0.85]
+
+  Per-source safe-set FPR @ thr=0.50 (context):
+  source                  n      FPR
+  as_applause           264    0.117
+  as_cheering           380    0.126
+  as_crowd              423    0.579
+  as_laughter           269    0.825
+  as_music              484    0.376
+  as_singing            353    0.269
+  as_speech             378    0.717  ←
+  bg                    582    0.213
+  esc                   120    0.358
+  esc_hns                40    0.625
+  hns                   643    0.138
+  synth_ambient          75    0.000
+  synth_quiet            75    0.000
+  synth_silence          75    0.000
+  viol_violence         163    0.607
+  yt_metro              442    0.351
+
+Result: CLAIM 1 VALIDATED

@@ -138,6 +138,9 @@ celerybeat.pid
 .env
 .envrc
 .venv
+.scratch/
+tests/reports/tweak_run.log
+tests/reports/tweak_finetune_full.txt
 env/
 venv/
 ENV/

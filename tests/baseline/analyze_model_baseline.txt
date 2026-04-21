@@ -1,0 +1,123 @@
+SafeCommute AI — model analysis  (device=cuda)
+
+==============================================================
+Size, parameters, latency
+==============================================================
+  File size:              7.00 MB         (claim: 7MB)
+  Parameters:              1,829,444  (claim: 1.83M)
+  CPU latency sweep       (claim: ~12ms on CPU):
+    config                         median      p10      p90
+    eager+no_grad, 8T               8.46ms    7.82ms    9.09ms
+    inference_mode, 8T              8.40ms    7.86ms    9.08ms
+    inference_mode, 1T             34.90ms   34.10ms   35.81ms
+    inference_mode, 2T             19.24ms   18.60ms   20.00ms
+    inference_mode, 4T             11.09ms   10.64ms   11.64ms
+    jit+inference_mode, 1T         31.25ms   31.14ms   31.37ms
+
+==============================================================
+Overall test-set metrics
+==============================================================
+  Samples:                6814  (4766 safe / 2048 unsafe)
+  ROC-AUC:                0.804       (claim: 0.804)
+  Accuracy @ thr=0.50:    0.703       (claim: 0.703)
+  F1 weighted @ thr=0.50: 0.716       (claim: 0.716)
+
+==============================================================
+Per-source THREAT RECALL (unsafe class) @ thr=0.50
+==============================================================
+  source                  n    TPR  rating
+  viol_violence         133  0.962  STRONG
+  as_gunshot            342  0.895  STRONG
+  as_yell               286  0.906  STRONG
+  yt_scream             225  0.782  GOOD
+  as_screaming          235  0.791  GOOD
+  as_explosion          219  0.740  GOOD
+  as_glass              299  0.799  GOOD
+  as_shout              309  0.647  WEAK
+
+==============================================================
+Per-source FALSE-ALARM RATE (safe class) @ thr=0.50
+==============================================================
+  source                  n    FPR  rating
+  as_laughter           269  0.825  CRITICAL
+  as_speech             378  0.717  CRITICAL
+  viol_violence         163  0.607  BAD
+  as_crowd              423  0.579  BAD
+  esc_hns                40  0.625  BAD
+  yt_metro              442  0.351  MID
+  as_music              484  0.376  MID
+  esc                   120  0.358  MID
+  as_singing            353  0.269  MID
+  bg                    582  0.213  MID
+  synth_silence          75  0.000  CLEAN
+  hns                   643  0.138  CLEAN
+  as_applause           264  0.117  CLEAN
+  as_cheering           380  0.126  CLEAN
+  synth_quiet            75  0.000  CLEAN
+  synth_ambient          75  0.000  CLEAN
+
+==============================================================
+Confidence distribution of P(unsafe)
+==============================================================
+  safe    n=4766  mean=0.376  median=0.360  p10=0.085  p90=0.694  sharp(<.1|>.9)=0.13  fuzzy(.4–.6)=0.24
+  unsafe  n=2048  mean=0.625  median=0.658  p10=0.383  p90=0.799  sharp(<.1|>.9)=0.01  fuzzy(.4–.6)=0.25
+
+==============================================================
+Threshold sweep: FPR / TPR / balanced-accuracy
+==============================================================
+    thr     FPR     TPR   BalAcc
+   0.10   0.875   0.998    0.561
+   0.20   0.689   0.978    0.644
+   0.30   0.585   0.954    0.685
+   0.40   0.458   0.892    0.717
+   0.50   0.342   0.809    0.733
+   0.60   0.216   0.646    0.715
+   0.70   0.093   0.375    0.641
+   0.80   0.012   0.098    0.543
+   0.90   0.000   0.006    0.503
+
+==============================================================
+Takeaways
+==============================================================
+  Strong points:
+   • AUC / accuracy / F1 / params / size all match RESULTS.md
+     and CLAUDE.md exactly — no silent drift.
+   • Violence-dataset clips detected best (TPR 96%) — the signal
+     the model was trained on comes through strongly.
+   • Gunshot (89%), glass breaking (80%), explosion (74%) are all
+     robust even though they are absent from RESULTS.md's table.
+   • Synthetic ambient / quiet / silence = 0% FPR; applause,
+     cheering, percussive hits (hns) stay under 14% FPR.
+
+  Weak points:
+   • Laughter (82.5%) is actually a LARGER false-alarm source
+     than speech (71.7%) — docs call out speech but not laughter.
+   • Shouts are the weakest threat class (TPR 64.7%) — blend with
+     angry conversation.
+   • Non-violent physical interaction (viol_violence, safe side)
+     triggers 60.7% FPR — body/impact sounds overlap with threats.
+   • The ROC-AUC looks OK (0.80) but max balanced-accuracy is
+     only 0.733 — there is NO clean operating point, every
+     threshold trades a lot of TPR for a little FPR.
+
+  Quirks worth knowing:
+   • The ~12ms CPU latency claim does NOT reproduce on this
+     machine — measured value is printed above. Likely a
+     per-hardware / per-thread-count figure; any deployment
+     claim should be re-measured on target hardware.
+   • Threat confidence is muted: unsafe samples have mean P=0.63
+     and p10=0.38. 10% of true threats sit below the default
+     threshold → built-in ~19% miss rate at thr=0.5.
+   • Unsafe predictions are almost never sharp (1% > 0.9). The
+     model 'hedges' — useful for threshold tuning, bad for a
+     one-shot argmax decision.
+   • To push FPR below 10%, threshold ≥0.70 is required, which
+     slashes TPR to 37.5%. The 'low_fpr' threshold strategy in
+     finetune.py exists precisely because of this curve shape.
+   • 'viol_violence' appears in BOTH classes by design: the
+     violence dataset bundles violent + non-violent interactions
+     (see safecommute/pipeline/prepare_violence_data.py:6-7).
+   • RESULTS.md per-source safe table only lists 4 sources
+     (speech, crowd, laughter, metro) and omits 12 others,
+     including the very clean ones that would strengthen its
+     deployment story.

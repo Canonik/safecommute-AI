@@ -1,0 +1,78 @@
+
+=== TWEAK 0: threshold recalibration on held-out ===
+{
+  "approach": "threshold-recal-on-heldout",
+  "best_fp_le_5pct": {
+    "threshold": 0.77,
+    "fp_rate": 0.029411764705882353,
+    "threat_recall": 0.40350877192982454,
+    "ambient_n": 34,
+    "threat_n": 57
+  },
+  "sweep": [
+    {
+      "threshold": 0.5,
+      "fp_rate": 0.9117647058823529,
+      "threat_recall": 1.0
+    },
+    {
+      "threshold": 0.55,
+      "fp_rate": 0.9117647058823529,
+      "threat_recall": 0.9824561403508771
+    },
+    {
+      "threshold": 0.6,
+      "fp_rate": 0.7647058823529411,
+      "threat_recall": 0.9298245614035088
+    },
+    {
+      "threshold": 0.667,
+      "fp_rate": 0.38235294117647056,
+      "threat_recall": 0.8947368421052632
+    },
+    {
+      "threshold": 0.7,
+      "fp_rate": 0.20588235294117646,
+      "threat_recall": 0.8245614035087719
+    },
+    {
+      "threshold": 0.75,
+      "fp_rate": 0.08823529411764706,
+      "threat_recall": 0.543859649122807
+    },
+    {
+      "threshold": 0.8,
+      "fp_rate": 0.0,
+      "threat_recall": 0.22807017543859648
+    },
+    {
+      "threshold": 0.85,
+      "fp_rate": 0.0,
+      "threat_recall": 0.03508771929824561
+    },
+    {
+      "threshold": 0.9,
+      "fp_rate": 0.0,
+      "threat_recall": 0.0
+    },
+    {
+      "threshold": 0.95,
+      "fp_rate": 0.0,
+      "threat_recall": 0.0
+    }
+  ],
+  "ambient_max_prob": {
+    "min": 0.48311686515808105,
+    "median": 0.6367198824882507,
+    "max": 0.7857903838157654,
+    "mean": 0.6415827116545509
+  },
+  "threat_max_prob": {
+    "min": 0.5329236388206482,
+    "median": 0.7569727301597595,
+    "max": 0.8685482740402222,
+    "mean": 0.750996282226161
+  }
+}
+
+Report → tests/reports/tweak_finetune.json

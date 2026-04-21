@@ -1,0 +1,77 @@
+SafeCommute AI — FP-rate claim validation  (device=cuda)
+
+==========================================================
+Claim 1: base model speech FPR ~72%
+==========================================================
+============================================================
+ SafeCommute AI — Fine-tune for: metro
+============================================================
+
+  Loading base model: models/safecommute_v2.pth
+  Processing ambient audio from: raw_data/youtube_metro
+  Processed 3489 ambient chunks → safe class
+
+  Building fine-tuning dataset...
+  Ambient safe chunks: 3489
+  Base safe (kept 50%): 10189
+  Base unsafe (all): 9444
+  Total fine-tuning samples: 23122
+
+  Base model:  AUC=0.8044  Acc=0.7034  F1=0.7157
+
+  Fine-tuning: 10 epochs, lr=0.0001, freeze_cnn=True, warmup_epochs=0
+  CNN frozen, training 673,538/1,829,444 params
+  E 1 TL=0.0661 TA=74.9% VL=0.0704 *
+  E 2 TL=0.0630 TA=75.8% VL=0.0758
+  E 3 TL=0.0629 TA=75.3% VL=0.0703 *
+  E 4 TL=0.0623 TA=75.9% VL=0.0712
+  E 5 TL=0.0616 TA=76.4% VL=0.0721
+  E 6 TL=0.0612 TA=76.2% VL=0.0721
+  E 7 TL=0.0617 TA=76.2% VL=0.0746
+  E 8 TL=0.0615 TA=76.1% VL=0.0774
+  E 9 TL=0.0612 TA=76.3% VL=0.0700 *
+  E10 TL=0.0603 TA=77.1% VL=0.0718
+
+  Optimizing detection threshold...
+  Youden's J:   0.526
+  F1-optimal:   0.600 (F1=0.751)
+  Low-FPR (5%): 0.667
+
+============================================================
+  Fine-tuning Results: metro
+============================================================
+                            AUC      Acc       F1
+  Base model             0.8044   0.7034   0.7157
+  Fine-tuned             0.8066   0.6830   0.6957
+  Delta                 +0.0022  -0.0204  -0.0200
+
+  Saved model: models/metro_model.pth
+  Saved thresholds: models/metro_thresholds.json
+  Cleaned up temp directory
+
+Done.
+  speech samples:         378
+  speech FPR @ thr=0.50:  0.717   [PASS  0.60 ≤ fpr ≤ 0.85]
+
+==========================================================
+Phase B: ensure fine-tuned 'metro' checkpoint
+==========================================================
+  Fine-tune set:   58 wavs  (all of raw_data/youtube_metro)
+  Held-out set:    34 wavs  (from raw_data/youtube_metro_quarantine)
+  Running finetune.py (this takes minutes)...
+
+==========================================================
+Claim 2: fine-tuned overall FP ≤ 5% on HELD-OUT SITE AMBIENT
+==========================================================
+  held-out ambient: raw_data/youtube_metro_quarantine (34 wavs)
+  low_fpr threshold:      0.667
+  FP on held-out ambient:   0.382   [FAIL  ≤ 0.05]   (38.2% FP rate (13/34 files, target <= 5%))
+  Threat recall on raw_data/youtube_screams: 0.895   [PASS  ≥ 0.86]   (89.5% detection rate (51/57 files, target >= 90%))
+  Speech FP post-FT:        0.151   [WARN  ≤ 0.1]  (universal as_speech subset, n=378)
+  Determinism:              PASS  (max diff = 0.000000)
+  Silence gating:           PASS  (energy gated: silence RMS=0.0000, quiet RMS=0.0005 (gate=0.003))
+
+  Phase B blob → /home/cano/github/safecommute-AI/tests/reports/phase_b_metro.json
+
+==========================================================
+Result: CLAIM 1 ok; CLAIM 2 FAILED

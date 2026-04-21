@@ -1,0 +1,52 @@
+Torch: 2.11.0+cu130  threads=8  interop=8
+MKL env: OMP_NUM_THREADS=-  MKL_NUM_THREADS=-
+
+  running: eager+no_grad, 8T              median=   8.98ms  p10=   8.67ms  p90=   9.53ms  (warmup 0.3s)
+  running: eager+inference_mode, 8T       median=   8.42ms  p10=   8.03ms  p90=   8.83ms  (warmup 0.3s)
+  running: inference_mode, 4T             median=  13.32ms  p10=  12.36ms  p90=  13.91ms  (warmup 0.4s)
+  running: inference_mode, 2T             median=  18.06ms  p10=  17.80ms  p90=  18.55ms  (warmup 0.5s)
+  running: inference_mode, 1T             median=  34.24ms  p10=  32.63ms  p90=  35.26ms  (warmup 1.0s)
+  running: jit+optimize, 1T               W0421 12:14:39.092000 14109 venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_compat.py:133] Setting ONNX exporter to use operator set version 18 because the requested opset_version 17 is a lower version than we have implementations for. Automatic version conversion will be performed, which may not be successful at converting to the requested version. If version conversion is unsuccessful, the opset version of the exported model will be kept at 18. Please consider setting opset_version >=18 to leverage latest ONNX features
+/usr/lib/python3.14/contextlib.py:148: UserWarning: The tensor attributes self.gru._flat_weights[0], self.gru._flat_weights[1], self.gru._flat_weights[2], self.gru._flat_weights[3] were assigned during export. Such attributes must be registered as buffers using the `register_buffer` API (https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_buffer).
+  next(self.gen)
+/usr/lib/python3.14/copyreg.py:104: FutureWarning: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+  return cls.__new__(cls, *args)
+The model version conversion is not supported by the onnxscript version converter and fallback is enabled. The model will be converted using the onnx C API (target version: 17).
+Failed to convert the model to the target version 17 using the ONNX C API. The model was not modified
+Traceback (most recent call last):
+  File "/home/cano/github/safecommute-AI/venv/lib/python3.14/site-packages/onnxscript/version_converter/__init__.py", line 120, in call
+    converted_proto = _c_api_utils.call_onnx_api(
+        func=_partial_convert_version, model=model
+    )
+  File "/home/cano/github/safecommute-AI/venv/lib/python3.14/site-packages/onnxscript/version_converter/_c_api_utils.py", line 65, in call_onnx_api
+    result = func(proto)
+  File "/home/cano/github/safecommute-AI/venv/lib/python3.14/site-packages/onnxscript/version_converter/__init__.py", line 115, in _partial_convert_version
+    return onnx.version_converter.convert_version(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        proto, target_version=self.target_version
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/cano/github/safecommute-AI/venv/lib/python3.14/site-packages/onnx/version_converter.py", line 39, in convert_version
+    converted_model_str = C.convert_version(model_str, target_version)
+RuntimeError: /github/workspace/onnx/version_converter/adapters/axes_input_to_attribute.h:68: adapt: Assertion `node->hasAttribute(kaxes)` failed: No initializer or constant input to node found
+median=  33.46ms  p10=  33.27ms  p90=  34.00ms  (warmup 1.0s)
+[torch.onnx] Obtain model graph for `SafeCommuteCNN([...]` with `torch.export.export(..., strict=False)`...
+[torch.onnx] Obtain model graph for `SafeCommuteCNN([...]` with `torch.export.export(..., strict=False)`... ✅
+[torch.onnx] Run decompositions...
+[torch.onnx] Run decompositions... ✅
+[torch.onnx] Translate the graph into ONNX...
+[torch.onnx] Translate the graph into ONNX... ✅
+[torch.onnx] Optimize the ONNX graph...
+Applied 12 of general pattern rewrite rules.
+[torch.onnx] Optimize the ONNX graph... ✅
+  running: onnxruntime CPU, 8T            median=   3.97ms  p10=   3.87ms  p90=   4.14ms  (warmup 0.1s)
+  running: onnxruntime CPU, 1T            /home/cano/github/safecommute-AI/tests/measure_latency.py:143: DeprecationWarning: torch.ao.quantization is deprecated and will be removed in 2.10. 
+For migrations of users: 
+1. Eager mode quantization (torch.ao.quantization.quantize, torch.ao.quantization.quantize_dynamic), please migrate to use torchao eager mode quantize_ API instead 
+2. FX graph mode quantization (torch.ao.quantization.quantize_fx.prepare_fx,torch.ao.quantization.quantize_fx.convert_fx, please migrate to use torchao pt2e quantization API instead (prepare_pt2e, convert_pt2e) 
+3. pt2e quantization has been migrated to torchao (https://github.com/pytorch/ao/tree/main/torchao/quantization/pt2e) 
+see https://github.com/pytorch/ao/issues/2259 for more details
+  qmodel = torch.ao.quantization.quantize_dynamic(
+median=  26.92ms  p10=  26.85ms  p90=  27.01ms  (warmup 0.8s)
+  running: dynamic INT8 quant, 8T         median=   9.01ms  p10=   8.87ms  p90=   9.36ms  (warmup 0.3s)

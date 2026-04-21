@@ -1,0 +1,19 @@
+{
+  "site": "metro",
+  "model_path": "models/metro_model.pth",
+  "thresholds_file": "models/metro_thresholds.json",
+  "low_fpr_threshold": 0.6672978401184082,
+  "ambient_fit_dir": "raw_data/youtube_metro",
+  "held_out_dir": "raw_data/youtube_metro_quarantine",
+  "held_out_wavs": 34,
+  "threat_dir": "raw_data/youtube_screams",
+  "fp_rate": 0.382,
+  "threat_recall": 0.895,
+  "speech_fp_post": 0.15079365079365079,
+  "determinism_ok": true,
+  "silence_gate_ok": true,
+  "fp_passed": false,
+  "threat_passed": false,
+  "fp_detail": "38.2% FP rate (13/34 files, target <= 5%)",
+  "threat_detail": "89.5% detection rate (51/57 files, target >= 90%)"
+}

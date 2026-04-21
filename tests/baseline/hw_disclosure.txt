@@ -1,0 +1,31 @@
+=== system ===
+Linux mech 7.0.0-1-cachyos #1 SMP PREEMPT Fri, 17 Apr 2026 11:49:42 +0000 x86_64 GNU/Linux
+
+=== lscpu ===
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           48 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  16
+On-line CPU(s) list:                     0-15
+Vendor ID:                               AuthenticAMD
+Model name:                              AMD Ryzen 7 7435HS
+CPU family:                              25
+Model:                                   68
+Thread(s) per core:                      2
+Core(s) per socket:                      8
+Socket(s):                               1
+Stepping:                                1
+Microcode version:                       0xa404108
+Frequency boost:                         enabled
+CPU(s) scaling MHz:                      86%
+CPU max MHz:                             4553,9829
+CPU min MHz:                             411,5050
+BogoMIPS:                                6188,11
+
+=== python/torch/ort ===
+python 3.14.4
+torch 2.11.0+cu130 cuda 13.0
+onnxruntime 1.24.4
+threads 8
+scipy 1.17.1 librosa 0.11.0 numpy 2.4.3

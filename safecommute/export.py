@@ -99,32 +99,49 @@ def export_int8(model):
 
 
 def export_onnx(model, dummy_input):
-    """Export to ONNX format."""
+    """Export to ONNX as a single self-contained file.
+
+    Edge use case is batch=1, so no dynamic axes — static shape is also a
+    prerequisite for downstream static INT8 PTQ (safecommute/export_quantized.py).
+    PyTorch 2.11's default dynamo exporter writes weights as external data
+    (`.onnx.data` sidecar) which breaks portability; we explicitly opt out.
+    """
     print("\n── ONNX Export ──")
     path = MODEL_SAVE_PATH.replace('.pth', '.onnx')
+    external_data_path = path + ".data"
     try:
         torch.onnx.export(
             model, dummy_input, path,
             input_names=["mel_spectrogram"],
             output_names=["logits"],
-            dynamic_axes={"mel_spectrogram": {0: "batch"}},
+            opset_version=17,
+            dynamo=False,
+        )
+    except TypeError:
+        torch.onnx.export(
+            model, dummy_input, path,
+            input_names=["mel_spectrogram"],
+            output_names=["logits"],
             opset_version=17,
         )
-        size_mb = os.path.getsize(path) / (1024 * 1024)
-        print(f"  Saved → {path} ({size_mb:.2f} MB)")
 
-        try:
-            import onnx
-            onnx_model = onnx.load(path)
-            onnx.checker.check_model(onnx_model)
-            print("  ONNX model validated OK")
-        except ImportError:
-            print("  (onnx package not installed — skipping validation)")
-
-        return path
+    try:
+        import onnx
+        onnx_model = onnx.load(path, load_external_data=True)
+        if os.path.exists(external_data_path):
+            os.remove(external_data_path)
+        onnx.save(onnx_model, path, save_as_external_data=False)
+        onnx.checker.check_model(onnx_model)
+        print("  ONNX model validated OK")
+    except ImportError:
+        print("  (onnx package not installed — skipping validation/inlining)")
     except Exception as e:
-        print(f"  ONNX export failed: {e}")
-        return None
+        print(f"  ONNX validation failed (model saved): {e}")
+
+    size_mb = os.path.getsize(path) / (1024 * 1024)
+    sidecar = " + sidecar (LEAK)" if os.path.exists(external_data_path) else ""
+    print(f"  Saved → {path} ({size_mb:.2f} MB){sidecar}")
+    return path
 
 
 def export_torchscript(model, dummy_input):

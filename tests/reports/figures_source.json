@@ -1,0 +1,315 @@
+{
+  "generated_at": "2026-04-21T14:13:17Z",
+  "auc_roc": 0.8043991005625786,
+  "accuracy": 0.7034047549163487,
+  "f1_weighted": 0.7156876563953294,
+  "overall_fpr_at_0_5": 0.3417960553923626,
+  "overall_tpr_at_0_5": 0.80859375,
+  "confusion_matrix_normalized_at_0_5": [
+    [
+      0.6582039446076374,
+      0.3417960553923626
+    ],
+    [
+      0.19140625,
+      0.80859375
+    ]
+  ],
+  "confusion_matrix_counts_at_0_5": {
+    "tn": 3137,
+    "fp": 1629,
+    "fn": 392,
+    "tp": 1656
+  },
+  "threshold_sweep": [
+    {
+      "thr": 0.1,
+      "fpr": 0.8747377255560218,
+      "tpr": 0.99755859375,
+      "bal_acc": 0.5614104340969891
+    },
+    {
+      "thr": 0.2,
+      "fpr": 0.6894670583298363,
+      "tpr": 0.9775390625,
+      "bal_acc": 0.6440360020850818
+    },
+    {
+      "thr": 0.3,
+      "fpr": 0.5845572807385648,
+      "tpr": 0.95361328125,
+      "bal_acc": 0.6845280002557176
+    },
+    {
+      "thr": 0.4,
+      "fpr": 0.4582459085186739,
+      "tpr": 0.89208984375,
+      "bal_acc": 0.7169219676156631
+    },
+    {
+      "thr": 0.5,
+      "fpr": 0.3417960553923626,
+      "tpr": 0.80859375,
+      "bal_acc": 0.7333988473038187
+    },
+    {
+      "thr": 0.6,
+      "fpr": 0.2161141418380193,
+      "tpr": 0.6455078125,
+      "bal_acc": 0.7146968353309904
+    },
+    {
+      "thr": 0.7,
+      "fpr": 0.09295006294586655,
+      "tpr": 0.375,
+      "bal_acc": 0.6410249685270667
+    },
+    {
+      "thr": 0.8,
+      "fpr": 0.01174989509022241,
+      "tpr": 0.09814453125,
+      "bal_acc": 0.5431973180798888
+    },
+    {
+      "thr": 0.9,
+      "fpr": 0.000209819555182543,
+      "tpr": 0.005859375,
+      "bal_acc": 0.5028247777224087
+    }
+  ],
+  "threats": [
+    {
+      "source": "viol_violence",
+      "n": 133,
+      "accuracy": 0.9624060150375939
+    },
+    {
+      "source": "as_yell",
+      "n": 286,
+      "accuracy": 0.9055944055944056
+    },
+    {
+      "source": "as_gunshot",
+      "n": 342,
+      "accuracy": 0.8947368421052632
+    },
+    {
+      "source": "as_glass",
+      "n": 299,
+      "accuracy": 0.7993311036789298
+    },
+    {
+      "source": "as_screaming",
+      "n": 235,
+      "accuracy": 0.7914893617021277
+    },
+    {
+      "source": "yt_scream",
+      "n": 225,
+      "accuracy": 0.7822222222222223
+    },
+    {
+      "source": "as_explosion",
+      "n": 219,
+      "accuracy": 0.7397260273972602
+    },
+    {
+      "source": "as_shout",
+      "n": 309,
+      "accuracy": 0.6472491909385113
+    }
+  ],
+  "safes": [
+    {
+      "source": "synth_ambient",
+      "n": 75,
+      "accuracy": 1.0
+    },
+    {
+      "source": "synth_quiet",
+      "n": 75,
+      "accuracy": 1.0
+    },
+    {
+      "source": "synth_silence",
+      "n": 75,
+      "accuracy": 1.0
+    },
+    {
+      "source": "as_applause",
+      "n": 264,
+      "accuracy": 0.8825757575757576
+    },
+    {
+      "source": "as_cheering",
+      "n": 380,
+      "accuracy": 0.8736842105263158
+    },
+    {
+      "source": "hns",
+      "n": 643,
+      "accuracy": 0.8615863141524106
+    },
+    {
+      "source": "bg",
+      "n": 582,
+      "accuracy": 0.7869415807560137
+    },
+    {
+      "source": "as_singing",
+      "n": 353,
+      "accuracy": 0.7308781869688386
+    },
+    {
+      "source": "yt_metro",
+      "n": 442,
+      "accuracy": 0.6493212669683258
+    },
+    {
+      "source": "esc",
+      "n": 120,
+      "accuracy": 0.6416666666666666
+    },
+    {
+      "source": "as_music",
+      "n": 484,
+      "accuracy": 0.6239669421487604
+    },
+    {
+      "source": "as_crowd",
+      "n": 423,
+      "accuracy": 0.4208037825059102
+    },
+    {
+      "source": "viol_violence",
+      "n": 163,
+      "accuracy": 0.3926380368098159
+    },
+    {
+      "source": "esc_hns",
+      "n": 40,
+      "accuracy": 0.375
+    },
+    {
+      "source": "as_speech",
+      "n": 378,
+      "accuracy": 0.283068783068783
+    },
+    {
+      "source": "as_laughter",
+      "n": 269,
+      "accuracy": 0.17472118959107807
+    }
+  ],
+  "sota_params_m": {
+    "SafeCommute": 1.83,
+    "YAMNet": 3.7,
+    "PANNs-CNN14": 80.0,
+    "AST": 86.0
+  },
+  "sota_table": {
+    "models": [
+      "SafeCommute",
+      "YAMNet",
+      "PANNs-CNN14",
+      "AST"
+    ],
+    "params_m": [
+      1.83,
+      3.7,
+      80.0,
+      86.0
+    ],
+    "latency_ms": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "latency_ms_historical": [
+      12,
+      50,
+      150,
+      200
+    ],
+    "score": [
+      null,
+      0.306,
+      0.431,
+      0.485
+    ],
+    "score_note": "SafeCommute cell intentionally left None \u2014 AUC(binary) not comparable to mAP(527-class).",
+    "score_metric": [
+      "AUC",
+      "mAP",
+      "mAP",
+      "mAP"
+    ]
+  },
+  "gamma_ablation_historical": {
+    "gammas": [
+      0.0,
+      0.5,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "auc": [
+      0.761,
+      0.804,
+      0.812,
+      0.835,
+      0.856
+    ],
+    "hard_neg_acc": [
+      52.1,
+      46.9,
+      31.4,
+      9.2,
+      0.0
+    ],
+    "note": "\u03b3=0.5 reproduces from current checkpoint (measured 0.804); other \u03b3 values are training-log snapshots, checkpoints not preserved."
+  },
+  "finetune_impact": {
+    "site": "metro",
+    "categories": [
+      {
+        "name": "speech FP",
+        "before": 0.716931216931217,
+        "after": 0.15079365079365079,
+        "kind": "fpr"
+      },
+      {
+        "name": "overall FP (held-out)",
+        "before": 0.3417960553923626,
+        "after": 0.382,
+        "kind": "fpr"
+      },
+      {
+        "name": "threat recall",
+        "before": 0.80859375,
+        "after": 0.895,
+        "kind": "recall"
+      }
+    ],
+    "low_fpr_threshold": 0.6672978401184082,
+    "held_out_wavs": 34
+  },
+  "hw_disclosure": {
+    "cpu_model": "AMD Ryzen 7 7435HS",
+    "arch": "x86_64",
+    "cores": 16,
+    "torch_threads": 8,
+    "torch_interop_threads": 8,
+    "governor": "powersave",
+    "torch_version": "2.11.0+cu130",
+    "onnxruntime_version": "1.24.4",
+    "scipy_version": "1.17.1",
+    "librosa_version": "0.11.0",
+    "numpy_version": "2.4.3",
+    "blas": "mkl",
+    "target_hw_env": "unset",
+    "omp_num_threads": "unset",
+    "mkl_num_threads": "unset"
+  }
+}

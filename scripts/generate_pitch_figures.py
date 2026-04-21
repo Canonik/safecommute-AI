@@ -1,13 +1,45 @@
 """Whimsical, eclectic pitch-deck figures for SafeCommute AI.
 
 Hand-drawn xkcd vibes + warm pastel palette.
-Uses only glyphs DejaVu Sans can render (no color emoji).
+
+Every numeric value in this script is loaded from tests/reports/figures_source.json
+(produced by `python tests/verify_performance_claims.py --emit-figures-json`).
+ZERO hand-typed measurements — so the plots cannot silently drift away from
+the model's real behavior.
+
+If tests/reports/figures_source.json is missing, the script exits with a
+clear error telling you to run the verifier first. This is by design: every
+figure must trace to a measured number.
+
+Re-generate:
+    PYTHONPATH=. python tests/verify_performance_claims.py --emit-figures-json \\
+        tests/reports/figures_source.json
+    python scripts/generate_pitch_figures.py
 """
+from __future__ import annotations
+
+import json
+import sys
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 import numpy as np
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+# ── Load model-derived numbers ──────────────────────────────────────────
+FIG_JSON = (Path(__file__).resolve().parent.parent
+            / "tests" / "reports" / "figures_source.json")
+if not FIG_JSON.exists():
+    print(f"ERROR: {FIG_JSON} not found.\n"
+          "Regenerate it first with:\n"
+          "  PYTHONPATH=. python tests/verify_performance_claims.py "
+          "--emit-figures-json tests/reports/figures_source.json",
+          file=sys.stderr)
+    sys.exit(1)
+
+with open(FIG_JSON) as _f:
+    DATA = json.load(_f)
 
 C = {
     "peach":   "#ff8c61",
@@ -81,51 +113,54 @@ def _bubble(ax, xy, text, xytext, color, curve=0.3):
 
 # ---------- 1. Perf vs SOTA ----------
 def perf_vs_sota():
-    # no xkcd wobble here — this panel needs predictable spacing
-    models = ["SafeCommute", "YAMNet", "PANNs\nCNN14", "AST"]
-    params_m = [1.83, 3.7, 80.0, 86.0]
-    latency_ms = [12, 50, 150, 200]
-    score = [0.804, 0.306, 0.431, 0.485]
+    sota = DATA["sota_table"]
+    models = sota["models"]
+    params_m = sota["params_m"]
+    # Latency is historical (not reproduced per-hardware). Label it so.
+    latency_ms = sota["latency_ms_historical"]
+    # Score: SafeCommute AUC from current checkpoint; others are literature mAP.
+    score = list(sota["score"])
+    score[0] = DATA["auc_roc"]
+    tags = sota["score_metric"]
+
+    # Break CNN14 → two lines for legibility.
+    display_models = [m if m != "PANNs-CNN14" else "PANNs\nCNN14" for m in models]
     cols = [C["coral"], C["muted"], C["muted"], C["muted"]]
 
     fig, axes = plt.subplots(1, 3, figsize=(14.5, 5.8))
     fig.subplots_adjust(top=0.74, bottom=0.18, wspace=0.45,
                         left=0.07, right=0.97)
 
-    # panel 1: params (log)
     ax = axes[0]
-    ax.bar(models, params_m, color=cols, width=0.68,
+    ax.bar(display_models, params_m, color=cols, width=0.68,
            edgecolor=C["ink"], linewidth=2, zorder=3)
     ax.set_yscale("log")
     ax.set_ylim(1, 400)
     ax.set_ylabel("parameters (M, log)", labelpad=6)
     ax.set_title("tiny model", pad=16)
-    _grid(ax); ax.set_facecolor(C["paper"])
+    _grid(ax)
     for i, v in enumerate(params_m):
         ax.text(i, v * 1.15, f"{v:g}M", ha="center",
                 va="bottom", fontsize=11, fontweight="bold")
 
-    # panel 2: latency (linear)
     ax = axes[1]
-    ax.bar(models, latency_ms, color=cols, width=0.68,
+    ax.bar(display_models, latency_ms, color=cols, width=0.68,
            edgecolor=C["ink"], linewidth=2, zorder=3)
-    ax.set_ylim(0, 280)
-    ax.set_ylabel("CPU latency (ms)", labelpad=6)
+    ax.set_ylim(0, max(latency_ms) * 1.25)
+    ax.set_ylabel("CPU latency (ms, historical)", labelpad=6)
     ax.set_title("zippy", pad=16)
-    _grid(ax); ax.set_facecolor(C["paper"])
+    _grid(ax)
     for i, v in enumerate(latency_ms):
         ax.text(i, v + 8, f"{v} ms", ha="center",
                 va="bottom", fontsize=11, fontweight="bold")
 
-    # panel 3: score (labels with metric tag)
     ax = axes[2]
-    ax.bar(models, score, color=cols, width=0.68,
+    ax.bar(display_models, score, color=cols, width=0.68,
            edgecolor=C["ink"], linewidth=2, zorder=3)
     ax.set_ylim(0, 1.15)
     ax.set_ylabel("score", labelpad=6)
     ax.set_title("still smart", pad=16)
-    _grid(ax); ax.set_facecolor(C["paper"])
-    tags = ["AUC", "mAP", "mAP", "mAP"]
+    _grid(ax)
     for i, (v, tag) in enumerate(zip(score, tags)):
         ax.text(i, v + 0.03, f"{v:.2f} {tag}", ha="center",
                 va="bottom", fontsize=10.5, fontweight="bold")
@@ -134,24 +169,27 @@ def perf_vs_sota():
         ax.tick_params(axis="x", pad=6, labelsize=10)
 
     _title(fig, "us vs. the big kids",
-           "smaller, faster, still sharp  -  same bat, different league")
+           f"params from papers  |  latency = historical  |  "
+           f"our AUC {DATA['auc_roc']:.3f} measured, SOTA mAP from literature")
     fig.text(0.5, 0.02,
-             "note: our AUC is binary; SOTA mAP is on AudioSet's 527-class task.  "
-             "this chart is about footprint, not a head-to-head accuracy claim.",
+             "AUC(binary) not directly comparable to mAP(527-class AudioSet).  "
+             "this chart is about footprint, not accuracy head-to-head.",
              ha="center", fontsize=9, style="italic", color=C["muted"])
     _save(fig, "perf_vs_sota.png")
 
 
 # ---------- 2. Per-source breakdown ----------
 def per_source_breakdown():
-    threats = [("as_yell",      90.6),
-               ("as_screaming", 79.1),
-               ("yt_scream",    78.2),
-               ("as_shout",     64.7)]
-    negs = [("yt_metro",    64.9),
-            ("as_crowd",    42.1),
-            ("as_speech",   28.3),
-            ("as_laughter", 17.5)]
+    threats = [(t["source"], t["accuracy"] * 100)
+               for t in DATA["threats"]
+               if t["source"] in ("as_yell", "as_screaming",
+                                  "yt_scream", "as_shout")]
+    negs = [(s["source"], (1.0 - (1.0 - s["accuracy"])) * 100)  # accuracy = 1 - FPR
+            for s in DATA["safes"]
+            if s["source"] in ("yt_metro", "as_crowd",
+                               "as_speech", "as_laughter")]
+    # Want safes ordered high→low accuracy so the chart reads top-to-bottom.
+    negs = sorted(negs, key=lambda r: -r[1])
 
     sources = [s for s, _ in threats] + [s for s, _ in negs]
     values = [v for _, v in threats] + [v for _, v in negs]
@@ -174,7 +212,6 @@ def per_source_breakdown():
         ax.text(v + 1.8, i, f"{v:.1f}%", va="center",
                 fontsize=10.5, fontweight="bold")
 
-    # side panel: legend + callout, stacked, well clear of the axes
     ax.legend(
         handles=[
             mpatches.Patch(facecolor=C["sage"], edgecolor=C["ink"],
@@ -188,19 +225,29 @@ def per_source_breakdown():
         borderaxespad=0, fontsize=10.5,
     )
 
-    speech_idx = sources.index("as_speech")
-    ax.annotate(
-        "fine-tune on 1 h of\nsite ambient noise:\n"
-        "speech FP drops to ~4%",
-        xy=(28.3, speech_idx),
-        xytext=(1.04, 0.30), textcoords="axes fraction",
-        fontsize=11, color=C["plum"], fontweight="bold",
-        ha="left", va="center",
-        arrowprops=dict(arrowstyle="->", color=C["plum"],
-                        lw=1.8, connectionstyle="arc3,rad=-0.25"),
-        bbox=dict(boxstyle="round,pad=0.6", fc=C["cream"],
-                  ec=C["plum"], lw=1.5),
-    )
+    fi = DATA.get("finetune_impact")
+    if fi:
+        speech_after = fi["categories"][0]["after"]
+        callout = (f"fine-tune on {fi.get('held_out_wavs','?')}-clip ambient "
+                   f"(site={fi['site']}):\nspeech FP drops to "
+                   f"{speech_after*100:.1f}%")
+    else:
+        callout = ("fine-tune on ~1 h of site ambient:\n"
+                   "speech FP drops under 10%\n(measurement pending, Step 6)")
+
+    if "as_speech" in sources:
+        speech_idx = sources.index("as_speech")
+        ax.annotate(
+            callout,
+            xy=(values[speech_idx], speech_idx),
+            xytext=(1.04, 0.30), textcoords="axes fraction",
+            fontsize=11, color=C["plum"], fontweight="bold",
+            ha="left", va="center",
+            arrowprops=dict(arrowstyle="->", color=C["plum"],
+                            lw=1.8, connectionstyle="arc3,rad=-0.25"),
+            bbox=dict(boxstyle="round,pad=0.6", fc=C["cream"],
+                      ec=C["plum"], lw=1.5),
+        )
 
     _title(fig, "where we shine  &  where we squint",
            "yells? easy. speech? that's what fine-tuning is for")
@@ -209,11 +256,13 @@ def per_source_breakdown():
 
 # ---------- 3. Footprint bubble ----------
 def footprint_bubble():
+    sota = DATA["sota_table"]
     with plt.xkcd(scale=0.5, length=90, randomness=2):
-        models = ["SafeCommute", "YAMNet", "PANNs CNN14", "AST"]
-        params_m = [1.83, 3.7, 80.0, 86.0]
-        latency_ms = [12, 50, 150, 200]
-        score = [0.804, 0.306, 0.431, 0.485]
+        models = sota["models"]
+        params_m = sota["params_m"]
+        latency_ms = sota["latency_ms_historical"]
+        score = list(sota["score"])
+        score[0] = DATA["auc_roc"]
         cols = [C["coral"], C["teal"], C["mustard"], C["plum"]]
 
         fig, ax = plt.subplots(figsize=(11, 6.8))
@@ -225,10 +274,10 @@ def footprint_bubble():
                    linewidths=2.2, zorder=3)
 
         offsets = {
-            "SafeCommute":   (-0.5, -7),
-            "YAMNet":        (1.4,  20),
-            "PANNs CNN14":   (-55,  80),
-            "AST":           (30,   100),
+            models[0]: (-0.5, -7),
+            models[1]: (1.4,  20),
+            models[2]: (-55,  80),
+            models[3]: (30,   100),
         }
         for m, x, y, col in zip(models, params_m, latency_ms, cols):
             dx, dy = offsets[m]
@@ -240,7 +289,7 @@ def footprint_bubble():
         ax.set_xlim(0.8, 200)
         ax.set_ylim(5, 600)
         ax.set_xlabel("parameters (M, log)")
-        ax.set_ylabel("CPU latency (ms, log)")
+        ax.set_ylabel("CPU latency (ms, log — historical)")
         ax.grid(True, which="both", color=C["muted"],
                 linewidth=0.5, linestyle=(0, (1, 3)), alpha=0.55)
         ax.set_axisbelow(True)
@@ -251,7 +300,7 @@ def footprint_bubble():
                 fontsize=10, color=C["sage"],
                 style="italic", fontweight="bold")
         ax.annotate("lonely over here\n(in a good way)",
-                    xy=(1.83, 12), xytext=(6, 6),
+                    xy=(params_m[0], latency_ms[0]), xytext=(6, 6),
                     fontsize=10, color=C["coral"], fontweight="bold",
                     arrowprops=dict(arrowstyle="->",
                                     color=C["coral"], lw=1.8,
@@ -264,8 +313,7 @@ def footprint_bubble():
 
 # ---------- 4. Confusion matrix ----------
 def confusion_matrix():
-    cm = np.array([[0.59, 0.41],
-                   [0.18, 0.82]])
+    cm = np.array(DATA["confusion_matrix_normalized_at_0_5"])
     labels = ["safe", "unsafe"]
     tile = np.array([[C["sage"], C["coral"]],
                      [C["coral"], C["sage"]]])
@@ -299,17 +347,25 @@ def confusion_matrix():
         spine.set_visible(False)
     ax.tick_params(length=0)
 
+    leak = cm[0, 1] * 100        # FP rate at thr 0.5
     _title(fig, "the confusion matrix (tastefully)",
-           "AUC 0.80  -  acc 70%  -  that 41% slip is the speech problem")
+           f"AUC {DATA['auc_roc']:.3f}  -  acc {DATA['accuracy']*100:.0f}%  -  "
+           f"{leak:.1f}% safe→unsafe leakage is the speech problem")
     _save(fig, "confusion_matrix.png")
 
 
 # ---------- 5. Gamma ablation ----------
 def gamma_ablation():
+    gh = DATA["gamma_ablation_historical"]
     with plt.xkcd(scale=0.55, length=90, randomness=2):
-        gammas = [0.0, 0.5, 1.0, 2.0, 3.0]
-        auc = [0.761, 0.804, 0.812, 0.835, 0.856]
-        hn = [52.1, 46.9, 31.4, 9.2, 0.0]
+        gammas = gh["gammas"]
+        auc = list(gh["auc"])
+        hn = gh["hard_neg_acc"]
+        # Replace γ=0.5 AUC with the *measured* current checkpoint value.
+        for idx, g in enumerate(gammas):
+            if abs(g - 0.5) < 1e-9:
+                auc[idx] = DATA["auc_roc"]
+                break
 
         fig, ax1 = plt.subplots(figsize=(11.5, 6.8))
         fig.subplots_adjust(top=0.76, left=0.1, right=0.9, bottom=0.22)
@@ -323,7 +379,6 @@ def gamma_ablation():
         ax1.tick_params(axis="y", labelcolor=C["teal"])
         ax1.set_ylim(0.72, 0.92)
         _grid(ax1)
-        ax1.set_facecolor(C["paper"])
 
         ax2 = ax1.twinx()
         ax2.spines.top.set_visible(False)
@@ -336,11 +391,12 @@ def gamma_ablation():
         ax2.set_ylim(-5, 72)
 
         ax1.axvspan(0.3, 0.7, color=C["mustard"], alpha=0.28, zorder=0)
-        _bubble(ax1, (0.5, 0.804),
-                "gamma = 0.5\nthe sweet spot",
+        _bubble(ax1, (0.5, DATA["auc_roc"]),
+                f"gamma = 0.5\nmeasured {DATA['auc_roc']:.3f}\nthe sweet spot",
                 (1.25, 0.76), color=C["plum"], curve=-0.3)
 
-    ax2.annotate("gamma = 3 looks great\nuntil hard negatives\ncollapse to zero",
+    ax2.annotate("gamma = 3 looks great\nuntil hard negatives\ncollapse to zero\n"
+                 "(historical snapshot)",
                  xy=(3.0, 0), xytext=(1.9, 40),
                  fontsize=10.5, color=C["coral"], fontweight="bold",
                  ha="center",
@@ -354,33 +410,73 @@ def gamma_ablation():
     ax1.legend(l1 + l2, lb1 + lb2, loc="upper center",
                bbox_to_anchor=(0.5, -0.12), ncol=2)
     _title(fig, "the gamma trap",
-           "higher gamma = higher AUC... until the model forgets how to say 'safe'")
+           "γ=0.5 measured; other γ points are historical "
+           "(log-only, checkpoints not preserved)")
     _save(fig, "gamma_ablation.png")
 
 
 # ---------- 6. Fine-tune impact ----------
 def finetune_impact():
-    with plt.xkcd(scale=0.5, length=90, randomness=2):
+    fi = DATA.get("finetune_impact")
+    fpr = {s["source"]: 1.0 - s["accuracy"] for s in DATA["safes"]}
+    if fi is None:
+        # Pre-Step-6: show the pre-fine-tune bars from Phase A + a hatched
+        # "pending" band instead of fake after numbers.
         cats = ["speech FP", "laughter FP", "crowd FP",
                 "metro FP", "threat recall"]
-        before = [71.7, 82.5, 57.9, 35.1, 78.2]
-        after = [4.2, 6.8, 3.1, 2.4, 86.4]
+        before = [fpr.get("as_speech", 0) * 100,
+                  fpr.get("as_laughter", 0) * 100,
+                  fpr.get("as_crowd", 0) * 100,
+                  fpr.get("yt_metro", 0) * 100,
+                  DATA["overall_tpr_at_0_5"] * 100]
+        after = [None] * len(cats)
+    else:
+        # Step 6 done — 3 real measured pairs from phase_b_metro.json plus
+        # the 2 universal-FP sources (laughter, crowd) held at Phase A as
+        # "unchanged — fine-tune did not add these to its training set".
+        speech_b = fi["categories"][0]
+        overall_b = fi["categories"][1]
+        recall_b = fi["categories"][2]
+        cats = ["speech FP",
+                f"overall FP ({fi['site']} held-out)",
+                "threat recall",
+                "laughter FP", "crowd FP"]
+        before = [(speech_b["before"] or 0) * 100,
+                  (overall_b["before"] or 0) * 100,
+                  (recall_b["before"] or 0) * 100,
+                  fpr.get("as_laughter", 0) * 100,
+                  fpr.get("as_crowd", 0) * 100]
+        after = [(speech_b["after"] or 0) * 100,
+                 (overall_b["after"] or 0) * 100,
+                 (recall_b["after"] or 0) * 100,
+                 None, None]  # laughter/crowd not measured post-FT
 
-        x = np.arange(len(cats))
-        w = 0.38
+    x = np.arange(len(cats))
+    w = 0.38
+    with plt.xkcd(scale=0.5, length=90, randomness=2):
         fig, ax = plt.subplots(figsize=(12, 6.4))
         fig.subplots_adjust(top=0.76, left=0.08, right=0.96, bottom=0.22)
 
         b1 = ax.bar(x - w / 2, before, w, label="before",
                     color=C["coral"], edgecolor=C["ink"],
                     linewidth=1.8, zorder=3)
-        b2 = ax.bar(x + w / 2, after, w,
-                    label="after 10 min fine-tune",
-                    color=C["sage"], edgecolor=C["ink"],
-                    linewidth=1.8, zorder=3)
-        for bars in (b1, b2):
-            for bar in bars:
-                v = bar.get_height()
+        for bar, v in zip(b1, before):
+            ax.text(bar.get_x() + bar.get_width() / 2, v + 2.2,
+                    f"{v:.1f}", ha="center", fontsize=10,
+                    fontweight="bold")
+
+        after_vals = [v if v is not None else 0 for v in after]
+        b2 = ax.bar(x + w / 2, after_vals, w, label="after (metro fine-tune)",
+                    color=[C["sage"] if v is not None else C["muted"]
+                           for v in after],
+                    edgecolor=C["ink"], linewidth=1.8, zorder=3,
+                    hatch=['' if v is not None else '//' for v in after])
+        for bar, v in zip(b2, after):
+            if v is None:
+                ax.text(bar.get_x() + bar.get_width() / 2, 10,
+                        "(not measured)", ha="center", va="bottom",
+                        fontsize=9, style="italic", color=C["muted"])
+            else:
                 ax.text(bar.get_x() + bar.get_width() / 2, v + 2.2,
                         f"{v:.1f}", ha="center", fontsize=10,
                         fontweight="bold")
@@ -389,27 +485,16 @@ def finetune_impact():
         ax.set_ylabel("rate (%)")
         ax.set_ylim(0, 110)
         _grid(ax)
-        ax.set_facecolor(C["paper"])
         ax.legend(loc="upper right")
 
-        for i in range(4):
-            ax.annotate("", xy=(i + w / 2, after[i] + 7),
-                        xytext=(i - w / 2, before[i] - 3),
-                        arrowprops=dict(arrowstyle="->",
-                                        color=C["plum"], lw=1.6,
-                                        connectionstyle="arc3,rad=-0.25"))
-
-        ax.text(2, -22,
-                "FPs down is better  -  recall up is better",
-                transform=ax.transData, ha="center", fontsize=10,
-                style="italic", color=C["muted"])
-
-    _title(fig, "10 minutes that change everything",
-           "per-site fine-tuning: the magic step nobody wanted to admit was needed")
+    _title(fig, "the fine-tune delta",
+           (f"measured on held-out site ambient "
+            f"({fi['site'] if fi else 'pending Step 6'}, "
+            f"{fi['held_out_wavs'] if fi else '?'} clips)"))
     _save(fig, "finetune_impact.png")
 
 
-# ---------- 7. Privacy pipeline ----------
+# ---------- 7. Privacy pipeline (no measurements — layout only) ----------
 def privacy_pipeline():
     fig, ax = plt.subplots(figsize=(14.5, 5))
     fig.subplots_adjust(top=0.74, bottom=0.1, left=0.02, right=0.98)
@@ -468,6 +553,11 @@ def privacy_pipeline():
 
 
 if __name__ == "__main__":
+    print(f"Reading measured numbers from {FIG_JSON}")
+    print(f"  generated_at: {DATA.get('generated_at', 'unknown')}")
+    print(f"  AUC {DATA['auc_roc']:.4f}  acc {DATA['accuracy']:.4f}  "
+          f"FPR {DATA['overall_fpr_at_0_5']:.4f}")
+    print()
     perf_vs_sota()
     per_source_breakdown()
     footprint_bubble()

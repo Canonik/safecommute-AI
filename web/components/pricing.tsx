@@ -60,18 +60,18 @@ const TIERS: Tier[] = [
     cta: { kind: "checkout", label: `Pay €${PRICE_PER_RUN_EUR} →`, plan: "per_run", variant: "primary" },
   },
   {
-    name: "Subscription",
+    name: "Site unlock",
     price: `€${PRICE_SUBSCRIPTION_EUR}`,
-    per: "unlimited runs, one site",
+    per: "one-time, unlimited runs on one site",
     tag: "Recommended",
     bg: "bg-bauhaus-blue",
     fg: "text-paper",
     featured: true,
     features: [
+      "One-time payment, no renewal",
       "Unlimited fine-tune runs on one site",
       "Re-tune after mic swaps, seasonal noise, retrofits",
-      "Priority queue",
-      "All future threshold tooling",
+      "Priority queue + all future threshold tooling",
     ],
     caveat: "Break-even vs per-run at 5 tunes. Most sites tune 3–6× in year one.",
     cta: { kind: "checkout", label: `Pay €${PRICE_SUBSCRIPTION_EUR} →`, plan: "subscription", variant: "ghost" },
@@ -113,8 +113,10 @@ export function Pricing() {
             </h2>
           </div>
           <div className="col-span-12 md:col-span-3 font-body text-sm leading-snug">
-            Pay per run for one-off calibration, or subscribe for unlimited runs on a single site —
-            renovations, new rolling stock, mic replacements all trigger a re-run.
+            Pay €{PRICE_PER_RUN_EUR} once for a single fine-tune, or pay €{PRICE_SUBSCRIPTION_EUR} once
+            for unlimited runs on a single site. Both are one-time payments. Renovations, new rolling
+            stock, mic replacements all trigger a re-run — the €{PRICE_SUBSCRIPTION_EUR} tier covers
+            them forever on one site, the €{PRICE_PER_RUN_EUR} tier is pay-as-you-need.
           </div>
         </div>
 

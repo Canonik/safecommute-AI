@@ -1,0 +1,665 @@
+{
+  "generated_at": "2026-04-21T14:13:17Z",
+  "hw_disclosure": {
+    "cpu_model": "AMD Ryzen 7 7435HS",
+    "arch": "x86_64",
+    "cores": 16,
+    "torch_threads": 8,
+    "torch_interop_threads": 8,
+    "governor": "powersave",
+    "torch_version": "2.11.0+cu130",
+    "onnxruntime_version": "1.24.4",
+    "scipy_version": "1.17.1",
+    "librosa_version": "0.11.0",
+    "numpy_version": "2.4.3",
+    "blas": "mkl",
+    "target_hw_env": "unset",
+    "omp_num_threads": "unset",
+    "mkl_num_threads": "unset"
+  },
+  "rows": [
+    {
+      "name": "AUC-ROC",
+      "measured": 0.8043991005625786,
+      "expected": 0.804,
+      "tolerance": 0.01,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.01",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Accuracy @ 0.50",
+      "measured": 0.7034047549163487,
+      "expected": 0.703,
+      "tolerance": 0.01,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.01",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "F1 weighted @ 0.50",
+      "measured": 0.7156876563953294,
+      "expected": 0.716,
+      "tolerance": 0.01,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.01",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Params",
+      "measured": 1829444,
+      "expected": 1829444,
+      "tolerance": 0.01,
+      "kind": "rel",
+      "kind_disp": "rel \u00b11.0%",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Size FP32 (MB)",
+      "measured": 7.004271507263184,
+      "expected": 7.0,
+      "tolerance": 0.1,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.1",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "TPR as_yell",
+      "measured": 0.9055944055944056,
+      "expected": 0.906,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": true,
+      "hard": true,
+      "detail": "n=286"
+    },
+    {
+      "name": "TPR as_screaming",
+      "measured": 0.7914893617021277,
+      "expected": 0.791,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": true,
+      "hard": true,
+      "detail": "n=235"
+    },
+    {
+      "name": "TPR yt_scream",
+      "measured": 0.7822222222222223,
+      "expected": 0.782,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": true,
+      "hard": true,
+      "detail": "n=225"
+    },
+    {
+      "name": "TPR as_shout",
+      "measured": 0.6472491909385113,
+      "expected": 0.647,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=309"
+    },
+    {
+      "name": "TPR as_gunshot",
+      "measured": 0.8947368421052632,
+      "expected": 0.893,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=342"
+    },
+    {
+      "name": "TPR as_glass",
+      "measured": 0.7993311036789298,
+      "expected": 0.8,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=299"
+    },
+    {
+      "name": "TPR as_explosion",
+      "measured": 0.7397260273972602,
+      "expected": 0.738,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=219"
+    },
+    {
+      "name": "TPR viol_violence",
+      "measured": 0.9624060150375939,
+      "expected": 0.963,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=133"
+    },
+    {
+      "name": "FPR yt_metro",
+      "measured": 0.3506787330316742,
+      "expected": 0.351,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=442"
+    },
+    {
+      "name": "FPR as_crowd",
+      "measured": 0.5791962174940898,
+      "expected": 0.579,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=423"
+    },
+    {
+      "name": "FPR as_speech",
+      "measured": 0.716931216931217,
+      "expected": 0.717,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=378"
+    },
+    {
+      "name": "FPR as_laughter",
+      "measured": 0.8252788104089219,
+      "expected": 0.825,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "n=269"
+    },
+    {
+      "name": "Speech-FP headline",
+      "measured": 0.716931216931217,
+      "expected": [
+        0.6,
+        0.85
+      ],
+      "tolerance": null,
+      "kind": "band",
+      "kind_disp": "band [0.6, 0.85]",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Micro threat recall",
+      "measured": 0.80859375,
+      "expected": 0.82,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Leakage 41% claim",
+      "measured": 0.3417960553923626,
+      "expected": 0.41,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": false,
+      "hard": false,
+      "detail": "doc: 41% (pitch-figures:267-268 hand-typed); measured FPR@0.5 = 0.342"
+    },
+    {
+      "name": "\u03b3=0.5 AUC (= claim 1)",
+      "measured": 0.8043991005625786,
+      "expected": 0.804,
+      "tolerance": 0.01,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.01",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "\u03b3=3.0 AUC 0.856",
+      "measured": null,
+      "expected": 0.856,
+      "tolerance": null,
+      "kind": "info",
+      "kind_disp": "info-NA",
+      "passed": false,
+      "hard": false,
+      "detail": "historical snapshot \u2014 checkpoint not preserved (per user decision)"
+    },
+    {
+      "name": "B:metro FP \u2264 5%",
+      "measured": 0.382,
+      "expected": 0.05,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 0.05",
+      "passed": false,
+      "hard": true,
+      "detail": "n=34 held-out wavs"
+    },
+    {
+      "name": "B:metro Threat recall \u2265 88%",
+      "measured": 0.895,
+      "expected": 0.88,
+      "tolerance": 0.0,
+      "kind": "gte",
+      "kind_disp": "\u2265 0.88",
+      "passed": true,
+      "hard": true,
+      "detail": "threats=raw_data/youtube_screams"
+    },
+    {
+      "name": "B:metro Speech-FP post \u2264 10%",
+      "measured": 0.15079365079365079,
+      "expected": 0.1,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 0.1",
+      "passed": false,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "B:metro Determinism",
+      "measured": true,
+      "expected": true,
+      "tolerance": null,
+      "kind": "info",
+      "kind_disp": "info",
+      "passed": true,
+      "hard": true,
+      "detail": "bit-identical across 10 runs"
+    },
+    {
+      "name": "B:metro Silence gating",
+      "measured": true,
+      "expected": true,
+      "tolerance": null,
+      "kind": "info",
+      "kind_disp": "info",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "C:Speech FP pre  ~71.7%",
+      "measured": 0.716931216931217,
+      "expected": 0.717,
+      "tolerance": 0.04,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.04",
+      "passed": true,
+      "hard": true,
+      "detail": "same measurement as Phase A row"
+    },
+    {
+      "name": "C:Speech FP post \u2264 10% (claim: 4.2%)",
+      "measured": 0.15079365079365079,
+      "expected": 0.1,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 0.1",
+      "passed": false,
+      "hard": true,
+      "detail": "measured after metro fine-tune"
+    },
+    {
+      "name": "C:Post-FT recall ~86%",
+      "measured": 0.895,
+      "expected": 0.86,
+      "tolerance": 0.03,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.03",
+      "passed": false,
+      "hard": true,
+      "detail": "measured after metro fine-tune"
+    },
+    {
+      "name": "C:~50\u00d7 smaller vs CNN14",
+      "measured": 43.71584699453552,
+      "expected": 50.0,
+      "tolerance": 10.0,
+      "kind": "abs",
+      "kind_disp": "abs \u00b110.0",
+      "passed": true,
+      "hard": true,
+      "detail": "param ratio = 43.7\u00d7 (80M / 1.83M)"
+    },
+    {
+      "name": "C:~10\u00d7 faster vs CNN14/AST",
+      "measured": null,
+      "expected": 10.0,
+      "tolerance": null,
+      "kind": "info",
+      "kind_disp": "info-NA",
+      "passed": false,
+      "hard": false,
+      "detail": "no measured SOTA latency row yet \u2014 soft claim"
+    },
+    {
+      "name": "C:\u03b3=0.5 AUC",
+      "measured": 0.8043991005625786,
+      "expected": 0.804,
+      "tolerance": 0.01,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.01",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "C:\u03b3=3.0 AUC 0.856",
+      "measured": null,
+      "expected": 0.856,
+      "tolerance": null,
+      "kind": "info",
+      "kind_disp": "info-NA",
+      "passed": false,
+      "hard": false,
+      "detail": "historical snapshot per user decision"
+    },
+    {
+      "name": "Deploy FP32 mean \u2264 15 ms",
+      "measured": 8.561233920045197,
+      "expected": 15.0,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 15.0",
+      "passed": true,
+      "hard": false,
+      "detail": "p99 9.6 ms, median 8.5 ms"
+    },
+    {
+      "name": "Deploy FP32 p99 \u2264 30 ms",
+      "measured": 9.632461070650608,
+      "expected": 30.0,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 30.0",
+      "passed": true,
+      "hard": false,
+      "detail": ""
+    },
+    {
+      "name": "ONNX FP32 mean ~12 ms (marketing)",
+      "measured": 3.9586677001170756,
+      "expected": 12.0,
+      "tolerance": 3.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 12.0",
+      "passed": true,
+      "hard": false,
+      "detail": "median 3.9 ms, p99 4.3 ms, threads=8"
+    },
+    {
+      "name": "INT8 ONNX mean \u2264 15 ms",
+      "measured": 2.842822310012707,
+      "expected": 15.0,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 15.0",
+      "passed": true,
+      "hard": false,
+      "detail": "median 2.8 ms p99 3.5 ms"
+    },
+    {
+      "name": "Size FP32 \u2264 10 MB",
+      "measured": 7.004271507263184,
+      "expected": 10.0,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 10.0",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "Size INT8 ONNX \u2264 6 MB",
+      "measured": 3.72080135345459,
+      "expected": 6.0,
+      "tolerance": 0.0,
+      "kind": "lte",
+      "kind_disp": "\u2264 6.0",
+      "passed": true,
+      "hard": true,
+      "detail": ""
+    },
+    {
+      "name": "INT8 AUC",
+      "measured": 0.8063798873203419,
+      "expected": 0.8043991005625786,
+      "tolerance": 0.02,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.02",
+      "passed": true,
+      "hard": true,
+      "detail": "FP32 baseline 0.8044, INT8 0.8064, |\u0394| = 0.0020"
+    }
+  ],
+  "summary": {
+    "total": 41,
+    "passed": 33,
+    "failed_hard": 4,
+    "warned": 4
+  },
+  "phase_a_full_metrics": {
+    "threshold": 0.5,
+    "n_samples": 6814,
+    "n_safe": 4766,
+    "n_unsafe": 2048,
+    "auc_roc": 0.8043991005625786,
+    "accuracy": 0.7034047549163487,
+    "f1_weighted": 0.7156876563953294,
+    "overall_tpr": 0.80859375,
+    "overall_fpr": 0.3417960553923626,
+    "tpr_by_source": {
+      "as_explosion": {
+        "n": 219,
+        "rate": 0.7397260273972602
+      },
+      "as_glass": {
+        "n": 299,
+        "rate": 0.7993311036789298
+      },
+      "as_gunshot": {
+        "n": 342,
+        "rate": 0.8947368421052632
+      },
+      "as_screaming": {
+        "n": 235,
+        "rate": 0.7914893617021277
+      },
+      "as_shout": {
+        "n": 309,
+        "rate": 0.6472491909385113
+      },
+      "as_yell": {
+        "n": 286,
+        "rate": 0.9055944055944056
+      },
+      "viol_violence": {
+        "n": 133,
+        "rate": 0.9624060150375939
+      },
+      "yt_scream": {
+        "n": 225,
+        "rate": 0.7822222222222223
+      }
+    },
+    "fpr_by_source": {
+      "as_applause": {
+        "n": 264,
+        "rate": 0.11742424242424243
+      },
+      "as_cheering": {
+        "n": 380,
+        "rate": 0.12631578947368421
+      },
+      "as_crowd": {
+        "n": 423,
+        "rate": 0.5791962174940898
+      },
+      "as_laughter": {
+        "n": 269,
+        "rate": 0.8252788104089219
+      },
+      "as_music": {
+        "n": 484,
+        "rate": 0.3760330578512397
+      },
+      "as_singing": {
+        "n": 353,
+        "rate": 0.26912181303116145
+      },
+      "as_speech": {
+        "n": 378,
+        "rate": 0.716931216931217
+      },
+      "bg": {
+        "n": 582,
+        "rate": 0.21305841924398625
+      },
+      "esc": {
+        "n": 120,
+        "rate": 0.35833333333333334
+      },
+      "esc_hns": {
+        "n": 40,
+        "rate": 0.625
+      },
+      "hns": {
+        "n": 643,
+        "rate": 0.13841368584758942
+      },
+      "synth_ambient": {
+        "n": 75,
+        "rate": 0.0
+      },
+      "synth_quiet": {
+        "n": 75,
+        "rate": 0.0
+      },
+      "synth_silence": {
+        "n": 75,
+        "rate": 0.0
+      },
+      "viol_violence": {
+        "n": 163,
+        "rate": 0.6073619631901841
+      },
+      "yt_metro": {
+        "n": 442,
+        "rate": 0.3506787330316742
+      }
+    },
+    "confusion_matrix_normalized": [
+      [
+        0.6582039446076374,
+        0.3417960553923626
+      ],
+      [
+        0.19140625,
+        0.80859375
+      ]
+    ],
+    "confusion_matrix_counts": {
+      "tn": 3137,
+      "fp": 1629,
+      "fn": 392,
+      "tp": 1656
+    },
+    "threshold_sweep": [
+      {
+        "thr": 0.1,
+        "fpr": 0.8747377255560218,
+        "tpr": 0.99755859375,
+        "bal_acc": 0.5614104340969891
+      },
+      {
+        "thr": 0.2,
+        "fpr": 0.6894670583298363,
+        "tpr": 0.9775390625,
+        "bal_acc": 0.6440360020850818
+      },
+      {
+        "thr": 0.3,
+        "fpr": 0.5845572807385648,
+        "tpr": 0.95361328125,
+        "bal_acc": 0.6845280002557176
+      },
+      {
+        "thr": 0.4,
+        "fpr": 0.4582459085186739,
+        "tpr": 0.89208984375,
+        "bal_acc": 0.7169219676156631
+      },
+      {
+        "thr": 0.5,
+        "fpr": 0.3417960553923626,
+        "tpr": 0.80859375,
+        "bal_acc": 0.7333988473038187
+      },
+      {
+        "thr": 0.6,
+        "fpr": 0.2161141418380193,
+        "tpr": 0.6455078125,
+        "bal_acc": 0.7146968353309904
+      },
+      {
+        "thr": 0.7,
+        "fpr": 0.09295006294586655,
+        "tpr": 0.375,
+        "bal_acc": 0.6410249685270667
+      },
+      {
+        "thr": 0.8,
+        "fpr": 0.01174989509022241,
+        "tpr": 0.09814453125,
+        "bal_acc": 0.5431973180798888
+      },
+      {
+        "thr": 0.9,
+        "fpr": 0.000209819555182543,
+        "tpr": 0.005859375,
+        "bal_acc": 0.5028247777224087
+      }
+    ]
+  }
+}

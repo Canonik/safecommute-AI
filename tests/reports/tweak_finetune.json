@@ -1,0 +1,437 @@
+{
+  "started_at": "2026-04-21T10:54:38Z",
+  "ambient_dir": "raw_data/youtube_metro",
+  "held_out_dir": "raw_data/youtube_metro_quarantine",
+  "threat_dir": "raw_data/youtube_screams",
+  "attempts": [
+    {
+      "name": "tweak0_threshold_recal",
+      "used_existing_metro_model": true,
+      "result": {
+        "approach": "threshold-recal-on-heldout",
+        "best_fp_le_5pct": {
+          "threshold": 0.77,
+          "fp_rate": 0.029411764705882353,
+          "threat_recall": 0.40350877192982454,
+          "ambient_n": 34,
+          "threat_n": 57
+        },
+        "sweep": [
+          {
+            "threshold": 0.5,
+            "fp_rate": 0.9117647058823529,
+            "threat_recall": 1.0
+          },
+          {
+            "threshold": 0.55,
+            "fp_rate": 0.9117647058823529,
+            "threat_recall": 0.9824561403508771
+          },
+          {
+            "threshold": 0.6,
+            "fp_rate": 0.7647058823529411,
+            "threat_recall": 0.9298245614035088
+          },
+          {
+            "threshold": 0.667,
+            "fp_rate": 0.38235294117647056,
+            "threat_recall": 0.8947368421052632
+          },
+          {
+            "threshold": 0.7,
+            "fp_rate": 0.20588235294117646,
+            "threat_recall": 0.8245614035087719
+          },
+          {
+            "threshold": 0.75,
+            "fp_rate": 0.08823529411764706,
+            "threat_recall": 0.543859649122807
+          },
+          {
+            "threshold": 0.8,
+            "fp_rate": 0.0,
+            "threat_recall": 0.22807017543859648
+          },
+          {
+            "threshold": 0.85,
+            "fp_rate": 0.0,
+            "threat_recall": 0.03508771929824561
+          },
+          {
+            "threshold": 0.9,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.95,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          }
+        ],
+        "ambient_max_prob": {
+          "min": 0.48311686515808105,
+          "median": 0.6367198824882507,
+          "max": 0.7857903838157654,
+          "mean": 0.6415827116545509
+        },
+        "threat_max_prob": {
+          "min": 0.5329236388206482,
+          "median": 0.7569727301597595,
+          "max": 0.8685482740402222,
+          "mean": 0.750996282226161
+        }
+      }
+    },
+    {
+      "name": "tweak1_keep0.2_ep15",
+      "keep_safe_ratio": 0.2,
+      "epochs": 15,
+      "warmup_epochs": 0,
+      "freeze_cnn": true,
+      "measured_default": {
+        "threshold_used": 0.6139723658561707,
+        "low_fpr_configured": 0.6139723658561707,
+        "fp_rate": 0.294,
+        "fp_detail": "29.4% FP rate (10/34 files, target <= 5%)",
+        "threat_recall": 0.895,
+        "threat_detail": "89.5% detection rate (51/57 files, target >= 90%)",
+        "fp_ok": false,
+        "threat_ok": false
+      },
+      "threshold_recal": {
+        "approach": "threshold-recal-on-heldout",
+        "best_fp_le_5pct": {
+          "threshold": 0.73,
+          "fp_rate": 0.0,
+          "threat_recall": 0.3508771929824561,
+          "ambient_n": 34,
+          "threat_n": 57
+        },
+        "sweep": [
+          {
+            "threshold": 0.5,
+            "fp_rate": 0.7647058823529411,
+            "threat_recall": 0.9824561403508771
+          },
+          {
+            "threshold": 0.55,
+            "fp_rate": 0.5588235294117647,
+            "threat_recall": 0.9473684210526315
+          },
+          {
+            "threshold": 0.6,
+            "fp_rate": 0.4117647058823529,
+            "threat_recall": 0.9122807017543859
+          },
+          {
+            "threshold": 0.667,
+            "fp_rate": 0.11764705882352941,
+            "threat_recall": 0.7894736842105263
+          },
+          {
+            "threshold": 0.7,
+            "fp_rate": 0.058823529411764705,
+            "threat_recall": 0.5964912280701754
+          },
+          {
+            "threshold": 0.75,
+            "fp_rate": 0.0,
+            "threat_recall": 0.24561403508771928
+          },
+          {
+            "threshold": 0.8,
+            "fp_rate": 0.0,
+            "threat_recall": 0.05263157894736842
+          },
+          {
+            "threshold": 0.85,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.9,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.95,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          }
+        ],
+        "ambient_max_prob": {
+          "min": 0.4357128143310547,
+          "median": 0.5662155151367188,
+          "max": 0.7284846305847168,
+          "mean": 0.5710608485866996
+        },
+        "threat_max_prob": {
+          "min": 0.4637742042541504,
+          "median": 0.7109814286231995,
+          "max": 0.8335992097854614,
+          "mean": 0.7007829316875391
+        }
+      }
+    },
+    {
+      "name": "tweak2_unfreeze_warmup3_keep0.3_ep15",
+      "keep_safe_ratio": 0.3,
+      "epochs": 15,
+      "warmup_epochs": 3,
+      "freeze_cnn": false,
+      "measured_default": {
+        "threshold_used": 0.6355320811271667,
+        "low_fpr_configured": 0.6355320811271667,
+        "fp_rate": 0.382,
+        "fp_detail": "38.2% FP rate (13/34 files, target <= 5%)",
+        "threat_recall": 0.877,
+        "threat_detail": "87.7% detection rate (50/57 files, target >= 90%)",
+        "fp_ok": false,
+        "threat_ok": false
+      },
+      "threshold_recal": {
+        "approach": "threshold-recal-on-heldout",
+        "best_fp_le_5pct": {
+          "threshold": 0.74,
+          "fp_rate": 0.029411764705882353,
+          "threat_recall": 0.43859649122807015,
+          "ambient_n": 34,
+          "threat_n": 57
+        },
+        "sweep": [
+          {
+            "threshold": 0.5,
+            "fp_rate": 0.9411764705882353,
+            "threat_recall": 1.0
+          },
+          {
+            "threshold": 0.55,
+            "fp_rate": 0.7941176470588235,
+            "threat_recall": 0.9649122807017544
+          },
+          {
+            "threshold": 0.6,
+            "fp_rate": 0.5588235294117647,
+            "threat_recall": 0.9298245614035088
+          },
+          {
+            "threshold": 0.667,
+            "fp_rate": 0.20588235294117646,
+            "threat_recall": 0.7543859649122807
+          },
+          {
+            "threshold": 0.7,
+            "fp_rate": 0.14705882352941177,
+            "threat_recall": 0.6491228070175439
+          },
+          {
+            "threshold": 0.75,
+            "fp_rate": 0.029411764705882353,
+            "threat_recall": 0.3508771929824561
+          },
+          {
+            "threshold": 0.8,
+            "fp_rate": 0.0,
+            "threat_recall": 0.12280701754385964
+          },
+          {
+            "threshold": 0.85,
+            "fp_rate": 0.0,
+            "threat_recall": 0.017543859649122806
+          },
+          {
+            "threshold": 0.9,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.95,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          }
+        ],
+        "ambient_max_prob": {
+          "min": 0.42553165555000305,
+          "median": 0.6063381731510162,
+          "max": 0.7675930261611938,
+          "mean": 0.6131671404137331
+        },
+        "threat_max_prob": {
+          "min": 0.5232352018356323,
+          "median": 0.732193648815155,
+          "max": 0.8716739416122437,
+          "mean": 0.720115654301225
+        }
+      }
+    },
+    {
+      "name": "tweak3_keep0.1_ep20",
+      "keep_safe_ratio": 0.1,
+      "epochs": 20,
+      "warmup_epochs": 0,
+      "freeze_cnn": true,
+      "measured_default": {
+        "threshold_used": 0.6012299060821533,
+        "low_fpr_configured": 0.6012299060821533,
+        "fp_rate": 0.294,
+        "fp_detail": "29.4% FP rate (10/34 files, target <= 5%)",
+        "threat_recall": 0.877,
+        "threat_detail": "87.7% detection rate (50/57 files, target >= 90%)",
+        "fp_ok": false,
+        "threat_ok": false
+      },
+      "threshold_recal": {
+        "approach": "threshold-recal-on-heldout",
+        "best_fp_le_5pct": {
+          "threshold": 0.71,
+          "fp_rate": 0.029411764705882353,
+          "threat_recall": 0.49122807017543857,
+          "ambient_n": 34,
+          "threat_n": 57
+        },
+        "sweep": [
+          {
+            "threshold": 0.5,
+            "fp_rate": 0.6176470588235294,
+            "threat_recall": 0.9649122807017544
+          },
+          {
+            "threshold": 0.55,
+            "fp_rate": 0.4117647058823529,
+            "threat_recall": 0.9298245614035088
+          },
+          {
+            "threshold": 0.6,
+            "fp_rate": 0.29411764705882354,
+            "threat_recall": 0.8771929824561403
+          },
+          {
+            "threshold": 0.667,
+            "fp_rate": 0.11764705882352941,
+            "threat_recall": 0.7543859649122807
+          },
+          {
+            "threshold": 0.7,
+            "fp_rate": 0.058823529411764705,
+            "threat_recall": 0.5789473684210527
+          },
+          {
+            "threshold": 0.75,
+            "fp_rate": 0.0,
+            "threat_recall": 0.22807017543859648
+          },
+          {
+            "threshold": 0.8,
+            "fp_rate": 0.0,
+            "threat_recall": 0.12280701754385964
+          },
+          {
+            "threshold": 0.85,
+            "fp_rate": 0.0,
+            "threat_recall": 0.017543859649122806
+          },
+          {
+            "threshold": 0.9,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.95,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          }
+        ],
+        "ambient_max_prob": {
+          "min": 0.3944281041622162,
+          "median": 0.530818372964859,
+          "max": 0.7336486577987671,
+          "mean": 0.5431120676152846
+        },
+        "threat_max_prob": {
+          "min": 0.43885537981987,
+          "median": 0.7088078856468201,
+          "max": 0.8579062223434448,
+          "mean": 0.7015813453155652
+        }
+      }
+    },
+    {
+      "name": "tweak4_site_threshold_recal",
+      "approach": "recalibrate low_fpr on held-out (metro_model.pth)",
+      "threshold_recal": {
+        "approach": "threshold-recal-on-heldout",
+        "best_fp_le_5pct": {
+          "threshold": 0.77,
+          "fp_rate": 0.029411764705882353,
+          "threat_recall": 0.40350877192982454,
+          "ambient_n": 34,
+          "threat_n": 57
+        },
+        "sweep": [
+          {
+            "threshold": 0.5,
+            "fp_rate": 0.9117647058823529,
+            "threat_recall": 1.0
+          },
+          {
+            "threshold": 0.55,
+            "fp_rate": 0.9117647058823529,
+            "threat_recall": 0.9824561403508771
+          },
+          {
+            "threshold": 0.6,
+            "fp_rate": 0.7647058823529411,
+            "threat_recall": 0.9298245614035088
+          },
+          {
+            "threshold": 0.667,
+            "fp_rate": 0.38235294117647056,
+            "threat_recall": 0.8947368421052632
+          },
+          {
+            "threshold": 0.7,
+            "fp_rate": 0.20588235294117646,
+            "threat_recall": 0.8245614035087719
+          },
+          {
+            "threshold": 0.75,
+            "fp_rate": 0.08823529411764706,
+            "threat_recall": 0.543859649122807
+          },
+          {
+            "threshold": 0.8,
+            "fp_rate": 0.0,
+            "threat_recall": 0.22807017543859648
+          },
+          {
+            "threshold": 0.85,
+            "fp_rate": 0.0,
+            "threat_recall": 0.03508771929824561
+          },
+          {
+            "threshold": 0.9,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          },
+          {
+            "threshold": 0.95,
+            "fp_rate": 0.0,
+            "threat_recall": 0.0
+          }
+        ],
+        "ambient_max_prob": {
+          "min": 0.48311686515808105,
+          "median": 0.6367198824882507,
+          "max": 0.7857903838157654,
+          "mean": 0.6415827116545509
+        },
+        "threat_max_prob": {
+          "min": 0.5329236388206482,
+          "median": 0.7569727301597595,
+          "max": 0.8685482740402222,
+          "mean": 0.750996282226161
+        }
+      }
+    }
+  ]
+}

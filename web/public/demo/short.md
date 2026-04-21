@@ -1,11 +1,14 @@
 # SafeCommute AI — Demo model
 
-Binary audio classifier for public-safety escalation. Edge-only, privacy-preserving, ~12 ms CPU inference.
+Binary audio classifier for public-safety escalation. Edge-only, privacy-preserving, ~3–30 ms CPU inference (hardware-dependent; see latency table below).
 
 **This bundle contains:**
 
-- `safecommute_v2.pth` — PyTorch state_dict for the `SafeCommuteCNN` model (1.83M params, 7 MB float32)
+- `safecommute_v2_int8.onnx` — static-INT8 ONNX model (1.83 M params, 3.72 MB on disk)
+- `feature_stats.json` — `{mean, std}` normalization stats used by `infer.py`
+- `infer.py` — standalone inference runner (no PyTorch required)
 - `short.md` — this file
+- `README-bundle.md` — install + run instructions
 
 ## What it does
 
@@ -39,9 +42,13 @@ multi-scale pool   concat(last_hidden, mean, max) → (B, 384)
 FC   384 → 2 logits (safe / unsafe)
 ```
 
-- Parameters: **1.83 M**
-- File size: **7 MB** float32 (no quantization)
-- Inference latency: **~12 ms** on a single CPU core (measured on Ryzen 5, 2024)
+- Parameters: **1,829,444 (1.83 M)**
+- File size: **7.00 MB** float32 / **3.72 MB** INT8 ONNX (shipped in this bundle)
+- Inference latency (hardware-disclosed, model-only):
+  - ~12 ms on Ryzen 5, 1 thread — *historical* (original measurement setup; hardware not on hand for reproduction)
+  - 4.0 ms FP32 ONNX / **2.8 ms INT8 ONNX** on Ryzen 7 7435HS, 8 threads (measured 2026-04-21)
+  - 26.9 ms FP32 ONNX on Ryzen 7 7435HS, 1 thread (single-thread comparable)
+- End-to-end (including librosa PCEN preprocessing): ~20–50 ms on Ryzen 7; preprocessing dominates. Raspberry Pi numbers pending.
 - No GPU required
 
 ## Quickstart (Python)
@@ -93,13 +100,14 @@ The input representation is a **PCEN mel spectrogram**. This transform is non-in
 
 ## When it fails
 
-Out of the box on raw ambient audio:
+Out of the box on raw ambient audio (measured 2026-04-21, `tests/reports/verify_performance_claims.json`):
 
-- ~72% false-positive on everyday speech (loud conversations, announcements)
+- **71.7% false-positive on speech** (`as_speech` subset, n=378)
+- **82.5% false-positive on laughter** (`as_laughter`, n=269) — the docs historically highlighted speech; laughter is worse.
 - Poor robustness to HVAC / wheel squeal / platform noise
 - No site-specific calibration
 
-After **fine-tuning** on ≥30 min of the target site's ambient audio (see dashboard), false-positive drops to <7% while detection of real escalation stays above 85%.
+**After fine-tuning**, on the one real site we have measured (metro, 58 fine-tune clips + 34 truly-held-out quarantine clips), the default `--freeze-cnn` recipe with the `low_fpr` threshold produces **38.2% FP / 89.5% threat recall** on the held-out set — threat recall matches the intent, FP does not. A tweak sweep (see `tests/reports/tweak_finetune.json`) is in the repo; results propagate into the paper's Limitations section. **Do not cite a specific post-fine-tune FP number without checking this JSON.** One site's numbers are not n=3; additional site recordings are future work.
 
 ## Fine-tuning
 
