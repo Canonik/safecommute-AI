@@ -6,8 +6,8 @@ import { Triangle } from "@/components/ui/shapes";
 const STEPS = [
   { n: "01", t: "Layered data", d: "Universal threats · hard negatives · per-site ambient. Source-level sha256 splits — no leakage." },
   { n: "02", t: "PCEN features", d: "16 kHz → 64-band mel → PCEN. Non-invertible by design: waveform is destroyed at the feature stage." },
-  { n: "03", t: "Base training", d: "Focal γ=0.5 + 30% noise injection. 1.83 M params, 7 MB float32, ~12 ms CPU." },
-  { n: "04", t: "Site fine-tune", d: "10 minutes on recorded ambient. Frozen CNN, adapts GRU + FC. Speech FP 72% → <5%.", featured: true },
+  { n: "03", t: "Base training", d: "Focal γ=0.5 + 30% noise injection. 1.83 M params, 7 MB float32, 2.8 ms INT8 on Ryzen 7 (8T)." },
+  { n: "04", t: "Site fine-tune", d: "30+ min recorded ambient. Frozen CNN, adapts GRU + FC. Measured speech FP 72% → ~15% on metro (n=1 site); ≤5% gate unmet.", featured: true },
   { n: "05", t: "Edge inference", d: "3-sec sliding window, ambient calibration, speech-aware threshold, temporal smoothing." },
 ];
 

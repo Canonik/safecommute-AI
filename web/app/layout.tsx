@@ -33,7 +33,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SafeCommute AI — Edge audio classifier for public-safety escalation",
   description:
-    "Privacy-first edge audio classification. 7 MB, 12 ms on CPU, no cloud. Base model + per-site fine-tuning for transit, retail, schools, elder care, industrial.",
+    "Privacy-first edge audio classification. 7 MB, 2.8 ms INT8 on CPU, no cloud. Base model + per-site fine-tuning for transit, retail, schools, elder care, industrial.",
   openGraph: {
     title: "SafeCommute AI",
     description: "Hears what CCTV can't. Privacy-first edge audio classification.",

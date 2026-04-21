@@ -21,7 +21,7 @@ export function PrivacySection() {
               <span>Privacy architecture</span>
             </div>
             <h2 className="font-display uppercase text-5xl md:text-7xl leading-[0.9] tracking-tight">
-              No audio <br /> ever <span className="text-bauhaus-red">leaves</span> <br /> the device.
+              No audio <span className="text-bauhaus-red">leaves</span> <br /> the device <br /> at inference.
             </h2>
           </div>
           <div className="col-span-12 md:col-span-4 font-body text-base leading-snug md:pt-16">
@@ -30,8 +30,9 @@ export function PrivacySection() {
               spectrogram tiles the classifier consumes.
             </p>
             <p className="text-ink/70">
-              This is a structural guarantee — not a policy promise. There is no upload, no retention,
-              no human review path.
+              At inference this is a structural guarantee — not a policy promise. For paid fine-tuning,
+              audio is uploaded over TLS, processed, and deleted after training. Client-side PCEN is on
+              the roadmap so paid uploads become spectrograms too.
             </p>
           </div>
         </div>

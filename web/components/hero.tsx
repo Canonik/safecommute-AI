@@ -91,7 +91,7 @@ export function Hero() {
             >
               Privacy-first edge audio classification for public transit, schools, and retail.{" "}
               <strong className="font-grotesk font-bold">7 MB</strong> ·{" "}
-              <strong className="font-grotesk font-bold">12 ms</strong> on CPU ·{" "}
+              <strong className="font-grotesk font-bold">2.8 ms</strong> INT8 ONNX ·{" "}
               <strong className="font-grotesk font-bold">no cloud</strong>.
             </motion.p>
             <motion.div
@@ -113,31 +113,36 @@ export function Hero() {
           </div>
 
           {/* Stat discs cluster */}
-          <div className="col-span-12 md:col-span-4 grid grid-cols-2 gap-4 mt-6 md:mt-0">
-            <StatDisc
-              color="bg-bauhaus-yellow"
-              shape={<Circle className="absolute inset-0 w-full h-full" fill="#ffd100" />}
-              big={<CountUp value={7} suffix=" MB" />}
-              label="Model footprint"
-            />
-            <StatDisc
-              color="bg-bauhaus-blue text-paper"
-              shape={<Square className="absolute inset-0 w-full h-full" fill="#1d3bc1" />}
-              big={<CountUp value={12} suffix=" ms" />}
-              label="CPU inference"
-            />
-            <StatDisc
-              color="bg-paper"
-              shape={<Triangle className="absolute inset-0 w-full h-full" fill="#e63946" />}
-              big={<CountUp value={0.804} decimals={3} />}
-              label="AUC-ROC"
-              darkText
-            />
-            <StatDisc
-              color="bg-ink text-paper"
-              big={<CountUp value={5} prefix="<" suffix=" %" />}
-              label="Speech FP after fine-tune"
-            />
+          <div className="col-span-12 md:col-span-4 mt-6 md:mt-0">
+            <div className="grid grid-cols-2 gap-4">
+              <StatDisc
+                color="bg-bauhaus-yellow"
+                shape={<Circle className="absolute inset-0 w-full h-full" fill="#ffd100" />}
+                big={<CountUp value={7} suffix=" MB" />}
+                label="FP32 footprint"
+              />
+              <StatDisc
+                color="bg-bauhaus-blue text-paper"
+                shape={<Square className="absolute inset-0 w-full h-full" fill="#1d3bc1" />}
+                big={<CountUp value={2.8} decimals={1} suffix=" ms" />}
+                label="INT8 ONNX · 8T CPU"
+              />
+              <StatDisc
+                color="bg-paper"
+                shape={<Triangle className="absolute inset-0 w-full h-full" fill="#e63946" />}
+                big={<CountUp value={0.804} decimals={3} />}
+                label="AUC-ROC · base"
+                darkText
+              />
+              <StatDisc
+                color="bg-ink text-paper"
+                big={<CountUp value={3.72} decimals={2} suffix=" MB" />}
+                label="INT8 ONNX size"
+              />
+            </div>
+            <div className="mt-3 font-mono text-[10px] uppercase tracking-widest opacity-70 leading-snug">
+              Latency: Ryzen 7 7435HS, 8T, onnxruntime 1.24.4. Historical Ryzen-5 figure in /performance.
+            </div>
           </div>
         </div>
       </div>

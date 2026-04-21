@@ -6,8 +6,8 @@ import { useRef } from "react";
 const STATS = [
   { v: "1.83M", l: "Parameters" },
   { v: "7 MB", l: "Float32 size" },
-  { v: "~12 ms", l: "CPU latency" },
-  { v: "RPi 4+", l: "ARM-ready" },
+  { v: "2.8 ms", l: "INT8 · 8T CPU" },
+  { v: "ARM", l: "benchmark pending" },
   { v: "0 GPU", l: "Required" },
 ];
 
@@ -66,8 +66,8 @@ export function EdgePositioning() {
               </motion.div>
             ))}
             <div className="border-3 border-bauhaus-yellow bg-bauhaus-yellow text-ink p-4 font-body text-sm">
-              <strong className="font-display uppercase text-base block mb-1">~50× smaller, ~10× faster</strong>
-              than CNN14 and AST. Runs on the hardware you already have at the edge.
+              <strong className="font-display uppercase text-base block mb-1">~45× smaller than CNN14/AST</strong>
+              Latency comparison pending. Runs on the hardware you already have at the edge.
             </div>
           </div>
         </div>

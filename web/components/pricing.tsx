@@ -73,7 +73,7 @@ const TIERS: Tier[] = [
       "Re-tune after mic swaps, seasonal noise, retrofits",
       "Priority queue + all future threshold tooling",
     ],
-    caveat: "Break-even vs per-run at 5 tunes. Most sites tune 3–6× in year one.",
+    caveat: "Break-even vs per-run at ~4 tunes. Most sites tune 3–6× in year one.",
     cta: { kind: "checkout", label: `Pay €${PRICE_SUBSCRIPTION_EUR} →`, plan: "subscription", variant: "ghost" },
   },
   {

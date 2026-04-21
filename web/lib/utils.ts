@@ -17,5 +17,5 @@ export const DEMO_DOWNLOAD_URL = "/demo/safecommute-v2-demo.zip";
 export const DASHBOARD_URL = "/dashboard";
 export const SIGN_IN_URL = "/sign-in";
 
-export const PRICE_SUBSCRIPTION_EUR = 100;
-export const PRICE_PER_RUN_EUR = 23;
+export const PRICE_SUBSCRIPTION_EUR = 10;
+export const PRICE_PER_RUN_EUR = 3;

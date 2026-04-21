@@ -90,30 +90,32 @@ export function HonestyBlock() {
               className="relative border-3 border-ink bg-bauhaus-yellow p-6 overflow-hidden"
             >
               <div className="font-mono text-[11px] uppercase tracking-widest mb-4">
-                After 10-minute site calibration
+                After site calibration (measured, n=1 site)
               </div>
               <div className="font-display leading-none tracking-tight">
                 <div className="text-6xl md:text-7xl mb-1">
                   <span className="line-through decoration-[6px] decoration-ink opacity-60">72%</span>
                 </div>
                 <div className="text-7xl md:text-8xl text-bauhaus-red">
-                  &lt; 5%
+                  ~15%
                 </div>
                 <div className="mt-2 text-base uppercase tracking-tight">speech false-positive rate</div>
               </div>
               <div className="mt-4 font-body text-sm">
-                Frozen CNN + GRU/FC adaptation on 1–2 h of recorded ambient. Threat recall maintained at ~86%.
+                Frozen CNN + GRU/FC adaptation on 30+ min of recorded ambient. Threat recall 89.5%.
+                Overall-FP plateau is 29–38%; the ≤5% deployment gate is not yet met on n=1 site.
+                Full breakdown in the paper.
               </div>
 
               {/* Shrinking bar */}
               <div className="mt-6">
                 <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest mb-1">
-                  <span>FP rate</span>
+                  <span>Speech FP rate</span>
                 </div>
                 <div className="relative h-7 border-3 border-ink bg-paper overflow-hidden">
                   <motion.div
                     initial={{ width: "72%" }}
-                    animate={inView ? { width: "5%" } : { width: "72%" }}
+                    animate={inView ? { width: "15%" } : { width: "72%" }}
                     transition={{ duration: 1.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                     className="absolute inset-y-0 left-0 bg-bauhaus-red"
                   />
@@ -125,7 +127,7 @@ export function HonestyBlock() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/figures/finetune_impact.png"
-                alt="Fine-tuning impact — 72% to <5% false-positive rate"
+                alt="Fine-tuning impact — measured deployment result on metro (n=1 site)"
                 className="w-full h-auto"
               />
               <div className="mt-2 px-2 pb-1 font-mono text-[11px] uppercase tracking-widest opacity-70">
