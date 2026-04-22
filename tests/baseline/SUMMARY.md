@@ -1,5 +1,13 @@
 # Step 0 Baseline — SafeCommute AI, 2026-04-21
 
+> **Historical snapshot.** The "Blockers observed for later steps" section at the end of this document is fully resolved as of 2026-04-22:
+> - ONNX single-file fix → done (see `models/safecommute_v2.onnx`, 6.99 MB with no `.data` sidecar)
+> - Static INT8 on Conv → done (`models/safecommute_v2_int8.onnx`, 3.72 MB, AUC Δ = 0.002)
+> - 15 ms / 30 ms latency targets → met by both the 8T ONNX FP32 path (3.97 ms) and the INT8 path (2.8 ms)
+>
+> This document remains in the repo as the reproducibility provenance for the latency numbers cited in `paper.md` §1.2 and `README.md` §CPU Latency. The tables below are authoritative for what was measured on 2026-04-21; current state lives in `tests/reports/SUMMARY.md` + `tests/reports/verify_performance_claims.json`.
+
+
 Hardware: AMD Ryzen 7 7435HS, 8 cores / 16 threads (8 used by default).
 Python 3.14.4, torch 2.11.0+cu130, onnxruntime 1.24.4, librosa 0.11.0, scipy 1.17.1, numpy 2.4.3.
 Checkpoint: `models/safecommute_v2.pth` (7 MB FP32).

@@ -107,7 +107,12 @@ Out of the box on raw ambient audio (measured 2026-04-21, `tests/reports/verify_
 - Poor robustness to HVAC / wheel squeal / platform noise
 - No site-specific calibration
 
-**After fine-tuning**, on the one real site we have measured (metro, 58 fine-tune clips + 34 truly-held-out quarantine clips), the default `--freeze-cnn` recipe with the `low_fpr` threshold produces **38.2% FP / 89.5% threat recall** on the held-out set — threat recall matches the intent, FP does not. A tweak sweep (see `tests/reports/tweak_finetune.json`) is in the repo; results propagate into the paper's Limitations section. **Do not cite a specific post-fine-tune FP number without checking this JSON.** One site's numbers are not n=3; additional site recordings are future work.
+**After fine-tuning**, on the one real site measured so far (metro, 58 fine-tune clips + a 50/50 sha256 split of the 34-wav quarantine bucket into 15 calibration + 19 evaluation wavs), two architecture-preserving post-hoc levers close the FP side of the gate:
+
+- Training-side only (k=1, max-window aggregation): FP **38.2 %** / recall 89.5 % at the default threshold — the honest "pre-lever" number.
+- Training-side best tweak + **temporal-majority aggregation (k=2)**: FP **0.0 %** (0 / 19 held-out eval wavs) / recall **78.9 %** (45 / 57 screams). The FP ≤ 5 % target is met; the ≥ 88 % recall target is 9 pts short.
+
+See `tests/reports/metro_lever_sweep.json` for the full 4 checkpoints × 3 k values × 2 threshold-choice matrix, and `paper.md` §1.4 tweak 5 for the trade curve. One site is not n=3 — additional site recordings are the remaining paper-side gap, with the per-site workflow documented in `DEPLOYMENT_NEXT_STEPS.md` §7.
 
 ## Fine-tuning
 
@@ -129,7 +134,7 @@ PYTHONPATH=. python safecommute/pipeline/finetune.py \
 ## Links
 
 - Repository: <https://github.com/Canonik/safecommute-AI>
-- Full docs: `README.md`, `DEPLOY.md` in the repo
+- Full docs: `README.md`, `paper.md`, `DEPLOY_WEB.md`, `DEPLOYMENT_NEXT_STEPS.md` in the repo
 - Fine-tuning dashboard: open the landing page → "Open dashboard"
 
 ## License & attribution

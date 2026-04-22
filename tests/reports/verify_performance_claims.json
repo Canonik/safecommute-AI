@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-22T09:41:56Z",
+  "generated_at": "2026-04-22T21:19:42Z",
   "hw_disclosure": {
     "cpu_model": "AMD Ryzen 7 7435HS",
     "arch": "x86_64",
@@ -397,18 +397,18 @@
     },
     {
       "name": "Deploy FP32 mean \u2264 15 ms",
-      "measured": 9.115621930468478,
+      "measured": 9.037925018928945,
       "expected": 15.0,
       "tolerance": 0.0,
       "kind": "lte",
       "kind_disp": "\u2264 15.0",
       "passed": true,
       "hard": false,
-      "detail": "p99 10.5 ms, median 9.0 ms"
+      "detail": "p99 10.6 ms, median 8.9 ms"
     },
     {
       "name": "Deploy FP32 p99 \u2264 30 ms",
-      "measured": 10.509680150426004,
+      "measured": 10.616051204269757,
       "expected": 30.0,
       "tolerance": 0.0,
       "kind": "lte",
@@ -419,25 +419,25 @@
     },
     {
       "name": "ONNX FP32 mean ~12 ms (marketing)",
-      "measured": 3.9977944896236295,
+      "measured": 4.120138900761958,
       "expected": 12.0,
       "tolerance": 3.0,
       "kind": "lte",
       "kind_disp": "\u2264 12.0",
       "passed": true,
       "hard": false,
-      "detail": "median 3.9 ms, p99 4.6 ms, threads=8"
+      "detail": "median 4.0 ms, p99 7.2 ms, threads=8"
     },
     {
       "name": "INT8 ONNX mean \u2264 15 ms",
-      "measured": 2.8015517600579187,
+      "measured": 2.9252562203328125,
       "expected": 15.0,
       "tolerance": 0.0,
       "kind": "lte",
       "kind_disp": "\u2264 15.0",
       "passed": true,
       "hard": false,
-      "detail": "median 2.8 ms p99 3.1 ms"
+      "detail": "median 2.9 ms p99 3.6 ms"
     },
     {
       "name": "Size FP32 \u2264 10 MB",

@@ -46,6 +46,7 @@ Rebuild the zip whenever either `safecommute_v2.pth` or `short.md` changes (the 
 2. **SQL editor → New query**, paste the entire contents of `supabase/migrations/0001_init.sql` (relative to `web/`), click **Run**. You should see `Success. No rows returned.`
    - Copy to clipboard from terminal: `wl-copy < supabase/migrations/0001_init.sql` (Wayland) or `xclip -sel clip < supabase/migrations/0001_init.sql` (X11 — install xclip first).
    - Creates: `profiles`, `sites`, `audio_clips`, `finetune_jobs`, `payments`, `entitlements` tables, the private `audio-uploads` Storage bucket, RLS policies scoped to `auth.uid()`, and the `on_auth_user_created` trigger that autocreates `profiles` + `entitlements` rows on signup.
+2b. **Also run `supabase/migrations/0002_models_deliverable_bucket.sql`** — creates the private `models-deliverable` bucket that the fine-tune worker writes artefacts into, plus the `worker_logs` table for error tracebacks. Without this the worker's final upload step fails and jobs stick in `status='running'`. See [DEPLOYMENT_NEXT_STEPS.md §1](DEPLOYMENT_NEXT_STEPS.md) and [worker/README.md](worker/README.md).
 3. **Authentication → Providers**: Email is enabled by default (magic link). Optionally enable Google.
 4. **Authentication → URL Configuration → Redirect URLs**: add both
    - `https://safecommute-ai.vercel.app/api/auth/callback`
@@ -192,22 +193,27 @@ So you can ship the public URL first, then layer the paid flow on.
 
 ---
 
-## 6. Fine-tune worker (still stubbed)
+## 6. Fine-tune worker — implemented 2026-04-22
 
-The dashboard queues jobs — it doesn't run them. Jobs stay in `status='queued'` indefinitely until a worker picks them up.
+The worker code now exists under [worker/](worker/) and pairs with a new storage bucket + logs table created by `supabase/migrations/0002_models_deliverable_bucket.sql` (step 2b above). Full per-job protocol in [worker/README.md](worker/README.md); operator runbook (what to apply, where to run it, how to smoke-test) in [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) §1–§4.
 
-To wire a real worker:
+What the worker does for each claimed `finetune_jobs` row:
 
-1. Deploy a Python container on Railway / Fly / a cheap GPU VM that, on a loop:
-   - polls `finetune_jobs where status='queued'` using the service-role key,
-   - updates the row to `status='running'`, sets `started_at = now()`,
-   - downloads the matching `audio_clips` rows from `audio-uploads/<owner>/<site_id>/...`,
-   - runs `safecommute/pipeline/finetune.py --environment <site.name> --ambient-dir <tempdir> --freeze-cnn`,
-   - uploads the produced `{environment}_model.pth` to a new Storage bucket `fine-tuned-models/<owner>/<site_id>/<job_id>.pth`,
-   - updates `finetune_jobs` → `status='succeeded'`, `model_path=<storage-path>`, `completed_at=now()`. On failure set `status='failed'` + `error=<exception>`.
-2. Add a `/api/finetune/[id]/download` route that validates the job belongs to the user and returns a signed URL from `fine-tuned-models`. The `JobCard` component already renders a Download button when `status === 'succeeded'`.
+1. Atomically flips `status queued → running` (CAS via PostgREST PATCH).
+2. Downloads the user's clips from `audio-uploads/{owner}/{site_id}/…`.
+3. Deterministic 80/20 split on clip basenames — 80 % feed fine-tune, 20 % feed `--calibration-ambient-dir` so the emitted `low_fpr_site` threshold is calibrated on held-out customer ambient.
+4. Runs `safecommute/pipeline/finetune.py` with the tweak-3 recipe (`--keep-safe-ratio 0.1 --epochs 20 --freeze-cnn`) + `--calibration-majority-k 2`.
+5. Exports a per-job INT8 ONNX via [worker/export.py](worker/export.py) (reuses `safecommute.export_quantized` helpers with caller-supplied paths so the base artefact isn't touched).
+6. Produces a deployment report via `safecommute/pipeline/test_deployment.py --majority-k 2`.
+7. Uploads three files to `models-deliverable/{owner}/{job_id}/{model.onnx, thresholds.json, deployment_report.json}`.
+8. Marks the row `succeeded` with `model_path` + `thresholds` JSONB.
+9. **Deletes the raw clips** from `audio-uploads` — privacy-fix option (b) per [paper.md §5](paper.md); the ephemeral-bucket story in [web/components/privacy-section.tsx](web/components/privacy-section.tsx) is now structurally true.
 
-Until that's in place, paying users see a "Queued" card with the rotating-ring animation — polished enough for demos and early sales calls, not enough for real paying customers.
+Download is served by [web/app/api/finetune/[id]/download/route.ts](web/app/api/finetune/\[id\]/download/route.ts) with `?file=model|thresholds|report`, 60-second signed URLs, 302 redirect (or `?format=json` for programmatic use). [web/components/dashboard/job-card.tsx](web/components/dashboard/job-card.tsx) renders three buttons when `status === 'succeeded'`.
+
+**Default deployment target (v1)**: self-hosted on the Ryzen 7 7435HS dev box as a systemd user unit. Install with `install -Dm0644 systemd/safecommute-worker.service ~/.config/systemd/user/`, then `systemctl --user enable --now`. Tail with `journalctl --user -u safecommute-worker -f`. Cloud migration deferred until ≥ 5 paying users.
+
+Until the worker is actually running somewhere (production env + migration 0002 applied + `worker/.env` populated), paying users still see a "Queued" card that never resolves. See [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) for the exact order of operations.
 
 ---
 
@@ -320,10 +326,12 @@ Status as of **2026-04-21** on `https://safecommute-ai.vercel.app`: paid flow is
 - [x] Enter email → magic link lands in inbox → clicking returns to `/dashboard`.
 - [x] `/dashboard/billing` → "Pay €23 →" → Stripe Checkout → card `4242 4242 4242 4242` any future date any CVC → returns with "Payment received" banner + `1 credit`. *(Required two fixes: §3.2 `prod_` → `price_` for both Stripe price env vars, and §8 `SUPABASE_SERVICE_ROLE_KEY` rotation so the webhook writes weren't dropped.)*
 - [x] Supabase Table Editor shows rows in `payments`, `entitlements`.
-- [ ] New site → drop 3 WAVs → "Run fine-tune" → queued job card appears, credit drops to 0.
+- [ ] New site → drop 3 WAVs → "Run fine-tune" → queued job card appears, credit drops to 0 — card transitions to "running" within 15 s (worker claim), "succeeded" within 10–20 min (CPU fine-tune on the Ryzen box), then shows three download buttons.
+- [ ] Download each of the three artefacts (Model .onnx / Thresholds / Deployment report); load the .onnx in `onnxruntime` and confirm it returns a probability.
+- [ ] Confirm the source clips are wiped from `audio-uploads/<owner>/<site>/` (privacy-fix verified on a real row).
 - [ ] Supabase shows rows in `sites`, `audio_clips`, `finetune_jobs`; files in Storage → `audio-uploads/<uid>/<site-id>/`.
 
-After the two remaining items pass, the job will stay at `status='queued'` forever — that is expected. §6 (fine-tune worker + `/api/finetune/[id]/download` route + `fine-tuned-models` Storage bucket) is the next workstream and the last blocker before a paying customer can complete a flow.
+Once the worker is running (§6 + [DEPLOYMENT_NEXT_STEPS.md §2](DEPLOYMENT_NEXT_STEPS.md)) and migration 0002 is applied (step 2b), the full upload → pay → run → download flow works end-to-end on the production stack. [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) is the current owner of that runbook — this doc covers the marketing-site + Supabase + Stripe foundation, the worker doc covers the background-processing half.
 
 ### Env var hygiene (found 2026-04-21)
 

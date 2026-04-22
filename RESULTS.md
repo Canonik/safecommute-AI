@@ -84,17 +84,28 @@ All numbers below are produced by [`tests/verify_performance_claims.py`](tests/v
 
 | Experiment | AUC | Outcome |
 |------------|-----|---------|
-| v2 baseline (gamma=3.0) | 0.856* | Hard negatives at 0% — unusable |
+| v2 baseline (gamma=3.0) | 0.791 (retrained 2026-04-22) | Per-source hard-neg acc (speech+laughter+crowd) = **3.9%** — the γ-collapse pattern. Threat TPR 95.9%. The originally-circulated 0.856 did not reproduce; `models/safecommute_v2_gamma3.pth` preserves this honest retrain. |
 | AST distillation | 0.795 | AUC dropped |
 | Sub-spectral norm | 0.784 | Failed |
 | Hard negative mining | 0.780 | Failed — redundant with focal loss |
 | Aggressive mixup | 0.775 | Failed — over-regularization |
 | **Gamma sweep** | **0.800** | **Breakthrough: gamma=3.0 was the problem** |
 | Gamma=0.5 | 0.793 | Best deployment balance |
-| **Gamma=0.5 + noise inject** | **0.804** | **Best overall** |
+| **Gamma=0.5 + noise inject** | **0.804** | **Best overall — `models/safecommute_v2.pth`** |
 | Noise + label smoothing | 0.763 | Incompatible with focal loss |
 | LibriSpeech speech data | 0.784 | Failed — data can't fix feature overlap |
 
-*v2 baseline AUC measured on different test snapshot, not directly comparable.
+Key discovery: focal loss gamma=3.0 collapses per-source hard-negative accuracy on threat-adjacent ambient (laughter 1.5 %, crowd 3.1 %, speech 6.6 % correctly classified as safe) while driving threat TPR above 95 %. The headline AUC does **not** rise at γ=3.0 — earlier "0.856" was a training-log snapshot that didn't survive a clean retrain under the same hyperparameters. Lowering to γ=0.5 + environmental noise injection produced both a stable-AUC model and a deployable operating point.
 
-Key discovery: focal loss gamma=3.0 was catastrophically over-regularized. Hard negatives got zero gradient. Lowering to gamma=0.5 + adding environmental noise injection during training produced the best deployable model.
+## Deployment — Phase B on n=1 site (metro)
+
+Measured 2026-04-22 on 50/50 sha256 split of `raw_data/youtube_metro_quarantine` (15 wavs for calibration, 19 wavs for evaluation — evaluation half never seen during calibration). Full matrix: [tests/reports/metro_lever_sweep.json](tests/reports/metro_lever_sweep.json).
+
+| Recipe | Threshold | k | FP (eval, 19 wavs) | Threat recall (57 wavs) |
+|---|---|---|---|---|
+| metro_default (keep 0.5, 10 ep, freeze) | pre-lever 0.667 | 1 | 42.1 % | 89.5 % |
+| metro_default | pre-lever 0.667 | **2** | 10.5 % | 82.5 % |
+| metro_tweak1 (keep 0.2, 15 ep, freeze) | pre-lever 0.614 | **2** | **0.0 %** | **77.2 %** |
+| **metro_tweak3 (keep 0.1, 20 ep, freeze)** | **pre-lever 0.601** | **2** | **0.0 %** | **78.9 %** ← primary |
+
+**Gate state**: FP ≤ 5 % ✅ (met at 0.0 %), recall ≥ 88 % ❌ (78.9 %, 9 pts short of the 88 % stated target). Site-ambient threshold recalibration (`low_fpr_site`) is implemented but over-tightens at 15 cal wavs — see [paper.md §1.4 tweak 5](paper.md) for the cost-of-closing-the-FP-gate trade curve + the recall-closing intervention list.

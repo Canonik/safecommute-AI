@@ -25,19 +25,27 @@ Privacy-first edge audio classifier for detecting escalation in public spaces. B
 
 See [RESULTS.md](RESULTS.md) for full benchmarks and per-source accuracy, and run [`tests/verify_performance_claims.py`](tests/verify_performance_claims.py) to reproduce every number.
 
-## Deployment State (measured 2026-04-21, n=1 site)
+## Deployment State (measured 2026-04-22, n=1 site)
 
-The base model is a research artefact, not a shippable classifier. On truly-held-out site ambient (34 `youtube_metro_quarantine` clips the fine-tune never sees), **the post-fine-tune ≤ 5 % FP deployment gate is not met**:
+The base model is a research artefact, not a shippable classifier without per-site fine-tuning. Held-out evaluation on 19 `youtube_metro_quarantine` wavs (50/50 deterministic split of the 34-wav quarantine; the 15-wav half is used only for threshold calibration, never for training):
+
+### Phase 1 of the deployment-gap audit (training-side tweaks only, k=1):
 
 | Fine-tune recipe | FP on held-out | Threat recall |
 |---|---|---|
 | Default (`--freeze-cnn --keep-safe-ratio 0.5 --epochs 10`) | **38.2 %** | 89.5 % |
 | Best architecture-preserving tweak (`--keep-safe-ratio 0.1 --epochs 20 --freeze-cnn`) | **29.4 %** | 87.7 % |
-| Best tweak at FP ≤ 5 % (threshold 0.710) | 2.9 % | **49.1 %** |
+| Best tweak at FP ≤ 5 % (threshold 0.710, k=1) | 2.9 % | **49.1 %** |
 
-Unfreezing the CNN during fine-tune is *actively worse*. The ≤ 5 % / ≥ 86 % target is unreachable on the 58-clip metro fine-tune pool via training-side re-weighting alone.
+Unfreezing the CNN during fine-tune is *actively worse*. Training-side re-weighting alone hits an FP plateau at ~29 % on the 58-clip metro fine-tune pool.
 
-Remaining architecture-preserving levers not yet implemented (see [paper.md §7](paper.md)): (a) calibrate `low_fpr` on site-ambient rather than the universal test set, (b) temporal-majority aggregation in [safecommute/pipeline/test_deployment.py](safecommute/pipeline/test_deployment.py) (require ≥ 2 consecutive over-threshold windows), (c) ≥ 5× more field-recorded ambient per site. The honest current state is documented in [paper.md](paper.md), [tests/reports/SUMMARY.md](tests/reports/SUMMARY.md), and [tests/reports/tweak_finetune.json](tests/reports/tweak_finetune.json).
+### Phase 2 of the audit — architecture-preserving post-hoc levers (k=2):
+
+| Lever applied | FP on held-out (19 wavs) | Threat recall (57 wavs) |
+|---|---|---|
+| metro_tweak3 + `low_fpr` 0.601 + **majority-k=2** | **0.0 %** | **78.9 %** |
+
+**The ≤ 5 % FP target is now met.** The ≥ 88 % recall target is not — measured recall is 78.9 %, a 9 pt gap vs the 88 % target stated in the fine-tune protocol. Closing that gap requires either (a) ≥ 30 calibration wavs so the site-threshold sweep stops over-tightening, (b) per-event-class threshold calibration, or (c) a learned aggregator on top of window probabilities. See [paper.md §1.4 tweak 5](paper.md) and [tests/reports/metro_lever_sweep.json](tests/reports/metro_lever_sweep.json) for the full 4 ckpts × 3 k × 2 threshold-choice matrix. [paper.md §0](paper.md) + [tests/reports/SUMMARY.md](tests/reports/SUMMARY.md) are the two authoritative numeric sources.
 
 ## Quick Start
 
