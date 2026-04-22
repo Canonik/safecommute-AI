@@ -265,14 +265,68 @@ def phase_a(device: torch.device) -> Dict:
                       detail=(f"doc: 41% (pitch-figures:267-268 hand-typed); "
                               f"measured FPR@0.5 = {lk_measured:.3f}")))
 
-    # γ=0.5 (current checkpoint) vs historical γ=3.0 row
+    # γ=0.5 (current checkpoint) vs γ=3.0 row. γ=3.0 is measured live from
+    # models/safecommute_v2_gamma3.pth when that file exists (see Phase 4 of
+    # the finalization plan); otherwise it falls back to the historical
+    # snapshot as a soft WARN.
     rows.append(check('γ=0.5 AUC (= claim 1)', metrics['auc_roc'],
                       GAMMA_0_5_AUC, 0.010, hard=True))
-    rows.append(check('γ=3.0 AUC 0.856',
-                      None, GAMMA_3_0_AUC_HISTORICAL, None,
-                      hard=False, kind='info',
-                      detail='historical snapshot — checkpoint not preserved '
-                             '(per user decision)'))
+    gamma3_path = MODEL_SAVE_PATH.replace('.pth', '_gamma3.pth')
+    if os.path.exists(gamma3_path):
+        try:
+            gamma3_model = load_model(gamma3_path, device=device)
+            g3_probs, g3_labels, g3_names = run_inference(
+                gamma3_model, ds, device)
+            from sklearn.metrics import roc_auc_score
+            g3_auc = float(roc_auc_score(g3_labels, g3_probs))
+            # "Hard-negative accuracy" = the fraction of the *hardest* safe
+            # sources (speech, laughter, crowd) correctly classified as safe
+            # at thr=0.5. The paper's γ-collapse claim is that this value
+            # drops to near zero at γ=3.0 while AUC rises — because the
+            # model routes every threat-shaped-but-safe sample to "unsafe"
+            # to minimise focal loss. Compute on the subset of safe samples
+            # whose filename starts with one of the hard-negative prefixes.
+            import numpy as _np
+            probs_np = _np.asarray(g3_probs)
+            labels_np = _np.asarray(g3_labels)
+            # Safe samples only (label=0) among hard sources.
+            hard_prefixes = ('as_speech_', 'as_laughter_', 'as_crowd_')
+            mask = _np.array([
+                labels_np[i] == 0 and any(g3_names[i].startswith(p) for p in hard_prefixes)
+                for i in range(len(labels_np))
+            ])
+            if mask.any():
+                # "Safe" means predicted-safe (prob < 0.5). Accuracy = fraction
+                # of hard-safe samples with prob < 0.5.
+                g3_hard_neg_acc = float((probs_np[mask] < 0.5).mean())
+                hard_neg_n = int(mask.sum())
+            else:
+                g3_hard_neg_acc = float('nan')
+                hard_neg_n = 0
+            # Aggregate threat-side TPR for contrast — γ=3.0 pulls this up
+            # while the hard-neg number drops.
+            tpr_np = float((probs_np[labels_np == 1] >= 0.5).mean()) \
+                     if (labels_np == 1).any() else float('nan')
+            rows.append(check('γ=3.0 AUC (measured)', g3_auc,
+                              GAMMA_3_0_AUC_HISTORICAL, 0.02, hard=True,
+                              detail=(f"from {gamma3_path}; "
+                                      f"hard-neg acc (speech+laughter+crowd "
+                                      f"kept as safe, n={hard_neg_n}) = "
+                                      f"{g3_hard_neg_acc*100:.1f}%; "
+                                      f"threat TPR @ 0.5 = {tpr_np*100:.1f}% — "
+                                      f"expected γ-collapse signature: "
+                                      f"low hard-neg, high TPR")))
+        except Exception as e:
+            rows.append(check('γ=3.0 AUC (measured)', None,
+                              GAMMA_3_0_AUC_HISTORICAL, 0.02,
+                              hard=False, kind='abs',
+                              detail=f"load/inference failed: {type(e).__name__}: {e}"))
+    else:
+        rows.append(check('γ=3.0 AUC 0.856',
+                          None, GAMMA_3_0_AUC_HISTORICAL, None,
+                          hard=False, kind='info',
+                          detail=f'{gamma3_path} not on disk — '
+                                 f'historical snapshot only'))
 
     print_rows("Phase A rows", rows)
     return {'rows': rows, 'metrics': metrics,
@@ -384,25 +438,85 @@ def phase_c(phase_a: Dict, phase_b_rows: List[Dict]) -> List[Dict]:
                       detail=('measured after metro fine-tune' if blob is not None
                               else 'awaits Phase B')))
 
-    # 23 — SOTA footprint
+    # 23 — SOTA footprint. If tests/reports/baselines.json is present (produced
+    # by tests/measure_sota_baselines.py), read measured params/latency and
+    # promote the "~10× faster" row from soft to hard.
     ratio = SOTA_PARAMS_M['PANNs-CNN14'] / SOTA_PARAMS_M['SafeCommute']
-    rows.append(check('C:~50× smaller vs CNN14',
-                      ratio, PAPER_SOTA_RATIO_CLAIM,
-                      PAPER_SOTA_RATIO_CLAIM * PAPER_SOTA_RATIO_TOL,
-                      hard=True, kind='abs',
-                      detail=f"param ratio = {ratio:.1f}× "
-                             f"(80M / 1.83M)"))
-    rows.append(check('C:~10× faster vs CNN14/AST',
-                      None, 10.0, None, hard=False, kind='info',
-                      detail='no measured SOTA latency row yet — soft claim'))
+    baselines_path = os.path.join('tests', 'reports', 'baselines.json')
+    baselines_payload: Optional[Dict] = None
+    if os.path.exists(baselines_path):
+        try:
+            with open(baselines_path) as f:
+                baselines_payload = json.load(f)
+        except Exception:
+            baselines_payload = None
 
-    # 24 γ ablation
+    if baselines_payload is not None:
+        cnn14 = next((b for b in baselines_payload.get('baselines', [])
+                      if b.get('model') == 'PANNs-CNN14'), None)
+        sc = next((b for b in baselines_payload.get('baselines', [])
+                   if b.get('model') == 'SafeCommute-INT8-ONNX'), None)
+        if cnn14 and 'params' in cnn14 and sc and 'params' in sc:
+            measured_param_ratio = cnn14['params'] / sc['params']
+            rows.append(check('C:~50× smaller vs CNN14 (measured)',
+                              measured_param_ratio,
+                              PAPER_SOTA_RATIO_CLAIM,
+                              PAPER_SOTA_RATIO_CLAIM * PAPER_SOTA_RATIO_TOL,
+                              hard=True, kind='abs',
+                              detail=(f"param ratio = {measured_param_ratio:.1f}× "
+                                      f"({cnn14['params']:,} / {sc['params']:,})")))
+        else:
+            rows.append(check('C:~50× smaller vs CNN14',
+                              ratio, PAPER_SOTA_RATIO_CLAIM,
+                              PAPER_SOTA_RATIO_CLAIM * PAPER_SOTA_RATIO_TOL,
+                              hard=True, kind='abs',
+                              detail=f"baselines.json missing CNN14 param count — "
+                                     f"param ratio = {ratio:.1f}× (80M / 1.83M)"))
+        if cnn14 and cnn14.get('latency') and sc and sc.get('latency'):
+            lat_ratio = (cnn14['latency']['median_ms']
+                         / sc['latency']['median_ms'])
+            # "~10× faster" is a one-sided claim: any measured ratio ≥ 10× is
+            # consistent with the claim (being FASTER than promised is not a
+            # failure). Use `gte` so the actual 22.7× we measure passes.
+            rows.append(check('C:~10× faster vs CNN14 (measured)',
+                              lat_ratio, 10.0, 0.0, hard=True, kind='gte',
+                              detail=(f"median latency ratio = {lat_ratio:.1f}× "
+                                      f"(CNN14 {cnn14['latency']['median_ms']:.1f} ms "
+                                      f"vs SafeCommute INT8 "
+                                      f"{sc['latency']['median_ms']:.1f} ms on "
+                                      f"{baselines_payload['hw_disclosure']['cpu_model']}, "
+                                      f"{baselines_payload['threads_used']}T)")))
+        else:
+            rows.append(check('C:~10× faster vs CNN14/AST',
+                              None, 10.0, None, hard=False, kind='info',
+                              detail='baselines.json lacks latency fields'))
+    else:
+        rows.append(check('C:~50× smaller vs CNN14',
+                          ratio, PAPER_SOTA_RATIO_CLAIM,
+                          PAPER_SOTA_RATIO_CLAIM * PAPER_SOTA_RATIO_TOL,
+                          hard=True, kind='abs',
+                          detail=f"param ratio = {ratio:.1f}× (80M / 1.83M)"))
+        rows.append(check('C:~10× faster vs CNN14/AST',
+                          None, 10.0, None, hard=False, kind='info',
+                          detail=('no measured SOTA latency yet — run '
+                                  'tests/measure_sota_baselines.py')))
+
+    # 24 γ ablation — mirror the Phase A γ=3.0 measurement if the re-trained
+    # checkpoint is on disk, else keep the historical-snapshot soft row.
     rows.append(check('C:γ=0.5 AUC', phase_a['metrics']['auc_roc'],
                       GAMMA_0_5_AUC, 0.010, hard=True))
-    rows.append(check('C:γ=3.0 AUC 0.856',
-                      None, GAMMA_3_0_AUC_HISTORICAL, None,
-                      hard=False, kind='info',
-                      detail='historical snapshot per user decision'))
+    phase_a_gamma3 = next((r for r in phase_a['rows']
+                           if r['name'] == 'γ=3.0 AUC (measured)'), None)
+    if phase_a_gamma3 is not None and phase_a_gamma3['measured'] is not None:
+        rows.append(check('C:γ=3.0 AUC (measured)',
+                          phase_a_gamma3['measured'],
+                          GAMMA_3_0_AUC_HISTORICAL, 0.02, hard=True,
+                          detail=phase_a_gamma3['detail']))
+    else:
+        rows.append(check('C:γ=3.0 AUC 0.856',
+                          None, GAMMA_3_0_AUC_HISTORICAL, None,
+                          hard=False, kind='info',
+                          detail='historical snapshot — re-train pending'))
 
     print_rows("Phase C rows", rows)
     return rows
@@ -619,12 +733,21 @@ def _json_default(o):
 
 GAMMA_HISTORICAL = {
     # RESULTS.md §"Experiment Summary" + paper.md §3.2 ablation.
-    # γ=3.0 checkpoint is not preserved — historical snapshot per user decision.
+    # Two endpoints of the sweep are re-runnable checkpoints (γ=0.5 and γ=3.0);
+    # the middle three γ values are training-log snapshots from the 2026-04-21
+    # sweep. γ=3.0 values updated 2026-04-22 from the re-trained
+    # models/safecommute_v2_gamma3.pth (AUC 0.791, hard-neg 3.9 %). Note the
+    # AUC *drop* relative to γ=0.5 — the original "0.856" did not reproduce.
     'gammas':        [0.0,   0.5,   1.0,   2.0,   3.0],
-    'auc':           [0.761, 0.804, 0.812, 0.835, 0.856],
-    'hard_neg_acc':  [52.1,  46.9,  31.4,  9.2,   0.0],
-    'note': ('γ=0.5 reproduces from current checkpoint (measured 0.804); '
-             'other γ values are training-log snapshots, checkpoints not preserved.')
+    'auc':           [0.761, 0.804, 0.812, 0.835, 0.791],
+    'hard_neg_acc':  [52.1,  46.9,  31.4,  9.2,   3.9],
+    'note': ('γ=0.5 reproduces from models/safecommute_v2.pth (AUC 0.804, '
+             'hard-neg 46.9 %); γ=3.0 reproduces from '
+             'models/safecommute_v2_gamma3.pth (AUC 0.791 — materially below '
+             'the 2026-04-21 training-log snapshot of 0.856; hard-neg 3.9 % '
+             'on speech+laughter+crowd, confirming the γ-collapse pattern). '
+             'γ ∈ {0.0, 1.0, 2.0} rows are training-log snapshots — checkpoints '
+             'not preserved.')
 }
 
 SOTA_TABLE = {

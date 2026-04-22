@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-04-22T09:07:57Z",
+  "hw_disclosure": {
+    "cpu_model": "AMD Ryzen 7 7435HS",
+    "arch": "x86_64",
+    "cores": 16,
+    "torch_threads": 1,
+    "torch_interop_threads": 8,
+    "governor": "powersave",
+    "torch_version": "2.11.0+cu130",
+    "onnxruntime_version": "1.24.4",
+    "scipy_version": "1.17.1",
+    "librosa_version": "0.11.0",
+    "numpy_version": "2.4.3",
+    "blas": "mkl",
+    "target_hw_env": "unset",
+    "omp_num_threads": "unset",
+    "mkl_num_threads": "unset"
+  },
+  "threads_used": 1,
+  "baselines": [
+    {
+      "model": "PANNs-CNN14",
+      "params": 81837071,
+      "fp32_size_mb": 312.27190113067627,
+      "input_shape": [
+        1,
+        96000
+      ],
+      "sample_rate": 32000,
+      "window_sec": 3,
+      "latency": {
+        "mean_ms": 250.52203396735422,
+        "median_ms": 250.5271174995869,
+        "p99_ms": 255.8138356395284,
+        "stddev_ms": 2.747921397326333,
+        "n_warmup": 10,
+        "n_measure": 30
+      },
+      "note": "Latency measured on a synthetic 3-sec 32kHz input; CNN14 expects raw audio (log-mel + PCEN is handled inside). AudioSet-pretrained weights NOT loaded for latency (empty init is equivalent \u2014 forward pass cost is identical)."
+    },
+    {
+      "model": "SafeCommute-INT8-ONNX",
+      "params": 1829444,
+      "fp32_size_mb": null,
+      "int8_size_mb": 3.72080135345459,
+      "input_shape": [
+        1,
+        1,
+        64,
+        188
+      ],
+      "sample_rate": 16000,
+      "window_sec": 3,
+      "latency": {
+        "mean_ms": 17.97361713373296,
+        "median_ms": 17.98407349997433,
+        "p99_ms": 18.71936772029585,
+        "stddev_ms": 0.4036633495959775,
+        "n_warmup": 10,
+        "n_measure": 30
+      },
+      "note": "Self-row \u2014 same hardware, same thread count as CNN14 baseline above. For reference, not a self-comparison claim."
+    }
+  ]
+}

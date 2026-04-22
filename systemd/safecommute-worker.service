@@ -1,0 +1,24 @@
+[Unit]
+Description=SafeCommute fine-tune worker
+Documentation=file:///home/cano/github/safecommute-AI/worker/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Source the env file with service-role key + recipe overrides. Keep this
+# file out of git; see worker/.env.example for the template.
+EnvironmentFile=%h/github/safecommute-AI/worker/.env
+WorkingDirectory=%h/github/safecommute-AI
+ExecStart=%h/github/safecommute-AI/venv/bin/python -m worker.main
+Restart=on-failure
+RestartSec=10
+# Let a job finish before shutting down so we don't orphan a partial run
+# halfway through an INT8 quantize pass.
+KillSignal=SIGTERM
+TimeoutStopSec=300
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -16,3 +16,5 @@ onnx
 onnxruntime
 onnxscript
 yt-dlp
+# worker dependencies (see worker/README.md)
+requests

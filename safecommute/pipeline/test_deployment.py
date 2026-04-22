@@ -39,6 +39,7 @@ Usage:
     PYTHONPATH=. python safecommute/pipeline/test_deployment.py
     PYTHONPATH=. python safecommute/pipeline/test_deployment.py --model models/metro_model.pth --verbose
     PYTHONPATH=. python safecommute/pipeline/test_deployment.py --threshold 0.7
+    PYTHONPATH=. python safecommute/pipeline/test_deployment.py --majority-k 2
 """
 
 import os
@@ -119,10 +120,48 @@ def sliding_window_inference(model, y, mean, std, threshold):
     return probs
 
 
+def fires(probs, threshold, majority_k=1):
+    """Alert-fire rule: True iff there exists a run of ``majority_k`` or more
+    consecutive windows whose probability is >= ``threshold``.
+
+    ``majority_k=1`` reproduces the original single-spike behaviour used by
+    earlier Phase B runs. ``majority_k>=2`` is the temporal-majority
+    aggregation rule described in VALIDATE_AND_IMPROVE.md §5 / paper.md §7:
+    a single over-threshold window is not enough to fire, which suppresses
+    isolated speech / crowd / metal-scrape spikes that dominated the
+    architecture-preserving tweak sweep plateau.
+    """
+    if not probs or majority_k < 1:
+        return False
+    run = 0
+    for p in probs:
+        if p >= threshold:
+            run += 1
+            if run >= majority_k:
+                return True
+        else:
+            run = 0
+    return False
+
+
+def longest_run(probs, threshold):
+    """Length of the longest consecutive run of windows at or above threshold.
+    Used for verbose/diagnostic output."""
+    best = cur = 0
+    for p in probs:
+        if p >= threshold:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 0
+    return best
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TEST 1: THREAT DETECTION
 # ─────────────────────────────────────────────────────────────────────────────
-def test_threat_detection(model, mean, std, threat_dir, threshold, verbose):
+def test_threat_detection(model, mean, std, threat_dir, threshold, verbose,
+                          majority_k=1):
     """Test that threat audio is detected."""
     files = [f for f in sorted(os.listdir(threat_dir)) if f.endswith('.wav')]
     if not files:
@@ -132,25 +171,29 @@ def test_threat_detection(model, mean, std, threat_dir, threshold, verbose):
     for fname in files:
         y, _ = librosa.load(os.path.join(threat_dir, fname), sr=SAMPLE_RATE, mono=True)
         probs = sliding_window_inference(model, y, mean, std, threshold)
+        triggered = fires(probs, threshold, majority_k)
         max_prob = max(probs) if probs else 0
-        triggered = max_prob >= threshold
         if triggered:
             detected += 1
         if verbose:
             status = "DETECT" if triggered else "MISS"
             print(f"    [{status}] {fname}: max={max_prob:.3f}, "
+                  f"run={longest_run(probs, threshold)}, "
                   f"mean={np.mean(probs):.3f}, windows={len(probs)}")
 
     rate = detected / len(files)
     passed = rate >= 0.90
-    detail = f"{rate:.1%} detection rate ({detected}/{len(files)} files, target >= 90%)"
+    suffix = f", k={majority_k}" if majority_k != 1 else ""
+    detail = (f"{rate:.1%} detection rate ({detected}/{len(files)} files, "
+              f"target >= 90%{suffix})")
     return passed, detail
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TEST 2: FALSE POSITIVE RATE
 # ─────────────────────────────────────────────────────────────────────────────
-def test_false_positive(model, mean, std, ambient_dir, threshold, verbose):
+def test_false_positive(model, mean, std, ambient_dir, threshold, verbose,
+                        majority_k=1):
     """Test that ambient audio does not trigger false positives."""
     files = [f for f in sorted(os.listdir(ambient_dir)) if f.endswith('.wav')]
     if not files:
@@ -160,18 +203,21 @@ def test_false_positive(model, mean, std, ambient_dir, threshold, verbose):
     for fname in files:
         y, _ = librosa.load(os.path.join(ambient_dir, fname), sr=SAMPLE_RATE, mono=True)
         probs = sliding_window_inference(model, y, mean, std, threshold)
+        triggered = fires(probs, threshold, majority_k)
         max_prob = max(probs) if probs else 0
-        triggered = max_prob >= threshold
         if triggered:
             false_positives += 1
         if verbose:
             status = "FP" if triggered else "OK"
             print(f"    [{status}] {fname}: max={max_prob:.3f}, "
+                  f"run={longest_run(probs, threshold)}, "
                   f"mean={np.mean(probs):.3f}")
 
     rate = false_positives / len(files)
     passed = rate <= 0.05
-    detail = f"{rate:.1%} FP rate ({false_positives}/{len(files)} files, target <= 5%)"
+    suffix = f", k={majority_k}" if majority_k != 1 else ""
+    detail = (f"{rate:.1%} FP rate ({false_positives}/{len(files)} files, "
+              f"target <= 5%{suffix})")
     return passed, detail
 
 
@@ -331,7 +377,14 @@ def main():
     parser.add_argument('--threshold', type=float, default=0.5,
                         help='Detection threshold (default: 0.5)')
     parser.add_argument('--thresholds-file', type=str, default=None,
-                        help='JSON file with optimized thresholds (uses low_fpr threshold)')
+                        help='JSON file with optimized thresholds. Prefers '
+                             '"low_fpr_site" (site-ambient-calibrated) when '
+                             'present, falls back to "low_fpr".')
+    parser.add_argument('--majority-k', type=int, default=1,
+                        help='Temporal-majority aggregation: require >= k '
+                             'consecutive over-threshold windows before firing '
+                             '(default: 1 = single-window spike = original '
+                             'behaviour; 2 = recommended for deployment).')
     parser.add_argument('--verbose', action='store_true',
                         help='Print per-file results')
     args = parser.parse_args()
@@ -340,14 +393,25 @@ def main():
     print(" SafeCommute AI — Deployment Acceptance Tests")
     print(f" Model: {args.model}")
     print(f" Threshold: {args.threshold}")
+    print(f" Majority-k: {args.majority_k}")
     print("=" * 60)
 
-    # Load optimized threshold if provided
+    # Load optimized threshold if provided. Prefer "low_fpr_site" (a threshold
+    # sweep calibrated on held-out site ambient, not the combined universal
+    # test set) when it exists — see safecommute/pipeline/finetune.py
+    # --calibration-ambient-dir. Falls back to "low_fpr" for back-compat with
+    # pre-site-calibration thresholds.json files.
     if args.thresholds_file and os.path.exists(args.thresholds_file):
         with open(args.thresholds_file) as f:
             thresholds = json.load(f)
-        args.threshold = thresholds.get('low_fpr', args.threshold)
-        print(f" Using optimized threshold: {args.threshold:.3f} (from {args.thresholds_file})")
+        if 'low_fpr_site' in thresholds:
+            args.threshold = thresholds['low_fpr_site']
+            key_used = 'low_fpr_site'
+        else:
+            args.threshold = thresholds.get('low_fpr', args.threshold)
+            key_used = 'low_fpr'
+        print(f" Using optimized threshold: {args.threshold:.3f} "
+              f"({key_used} from {args.thresholds_file})")
 
     if not os.path.exists(args.model):
         print(f"\n  ERROR: Model not found: {args.model}")
@@ -357,9 +421,11 @@ def main():
 
     tests = [
         ("Threat detection", lambda: test_threat_detection(
-            model, mean, std, args.threat_dir, args.threshold, args.verbose), True),
+            model, mean, std, args.threat_dir, args.threshold, args.verbose,
+            majority_k=args.majority_k), True),
         ("False positive rate", lambda: test_false_positive(
-            model, mean, std, args.ambient_dir, args.threshold, args.verbose), True),
+            model, mean, std, args.ambient_dir, args.threshold, args.verbose,
+            majority_k=args.majority_k), True),
         ("Latency", lambda: test_latency(model), True),
         ("Model size", lambda: test_model_size(args.model), True),
         ("Consistency", lambda: test_consistency(model), True),

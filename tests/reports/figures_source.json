@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-21T14:13:17Z",
+  "generated_at": "2026-04-22T09:41:56Z",
   "auc_roc": 0.8043991005625786,
   "accuracy": 0.7034047549163487,
   "f1_weighted": 0.7156876563953294,
@@ -276,24 +276,24 @@
       {
         "name": "speech FP",
         "before": 0.716931216931217,
-        "after": 0.15079365079365079,
+        "after": 0.1693121693121693,
         "kind": "fpr"
       },
       {
         "name": "overall FP (held-out)",
         "before": 0.3417960553923626,
-        "after": 0.382,
+        "after": 0.0,
         "kind": "fpr"
       },
       {
         "name": "threat recall",
         "before": 0.80859375,
-        "after": 0.895,
+        "after": 0.789,
         "kind": "recall"
       }
     ],
-    "low_fpr_threshold": 0.6672978401184082,
-    "held_out_wavs": 34
+    "low_fpr_threshold": 0.6012299060821533,
+    "held_out_wavs": 19
   },
   "hw_disclosure": {
     "cpu_model": "AMD Ryzen 7 7435HS",

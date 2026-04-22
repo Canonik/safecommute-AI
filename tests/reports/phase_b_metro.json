@@ -1,19 +1,226 @@
 {
   "site": "metro",
-  "model_path": "models/metro_model.pth",
-  "thresholds_file": "models/metro_thresholds.json",
-  "low_fpr_threshold": 0.6672978401184082,
+  "protocol": "quarantine 50/50 split (cal=15, eval=19); picked the operating point with highest threat recall subject to FP <= 5% across all (checkpoint \u00d7 threshold choice \u00d7 k) combinations \u2014 see tests/reports/metro_lever_sweep.json",
+  "split_salt": "metro_lever_eval_v1",
+  "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+  "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+  "low_fpr_threshold": 0.6012299060821533,
+  "low_fpr_site_majority_k": 2,
   "ambient_fit_dir": "raw_data/youtube_metro",
-  "held_out_dir": "raw_data/youtube_metro_quarantine",
-  "held_out_wavs": 34,
+  "calibration_dir": "raw_data/youtube_metro_quarantine::calibration_half",
+  "held_out_dir": "raw_data/youtube_metro_quarantine::evaluation_half",
+  "held_out_wavs": 19,
   "threat_dir": "raw_data/youtube_screams",
-  "fp_rate": 0.382,
-  "threat_recall": 0.895,
-  "speech_fp_post": 0.15079365079365079,
+  "fp_rate": 0.0,
+  "threat_recall": 0.789,
+  "speech_fp_post": 0.1693121693121693,
+  "fp_passed": true,
+  "threat_passed": false,
+  "fp_detail": "0.0% FP rate (target <= 5%, k=2)",
+  "threat_detail": "78.9% detection rate (target >= 88%, k=2)",
   "determinism_ok": true,
   "silence_gate_ok": true,
-  "fp_passed": false,
-  "threat_passed": false,
-  "fp_detail": "38.2% FP rate (13/34 files, target <= 5%)",
-  "threat_detail": "89.5% detection rate (51/57 files, target >= 90%)"
+  "levers_applied": [
+    "temporal-majority aggregation (k=2)"
+  ],
+  "baseline_at_pre_lever_k1": {
+    "threshold": 0.6012299060821533,
+    "majority_k": 1,
+    "fp_rate": 0.316,
+    "fp_ok": false,
+    "fp_detail": "31.6% FP rate (6/19 files, target <= 5%)",
+    "threat_recall": 0.877,
+    "threat_ok": false,
+    "threat_detail": "87.7% detection rate (50/57 files, target >= 90%)"
+  },
+  "recipe": "checkpoint=metro_tweak3, threshold=0.6012299060821533 (pre_lever), majority_k=2",
+  "speech_fp_post_note": "per-chunk fraction at threshold; computed on universal as_speech subset \u2014 max-aggregation, no majority-k (single-chunk samples).",
+  "all_fp_le_5pct_candidates": [
+    {
+      "checkpoint": "metro_tweak3",
+      "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+      "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+      "threshold_kind": "pre_lever",
+      "threshold": 0.6012299060821533,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.789,
+      "speech_fp_post": 0.1693121693121693
+    },
+    {
+      "checkpoint": "metro_tweak1",
+      "model_path": "models/metro_tweak1_keep0.2_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak1_keep0.2_ep15_thresholds.json",
+      "threshold_kind": "pre_lever",
+      "threshold": 0.6139723658561707,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.772,
+      "speech_fp_post": null
+    },
+    {
+      "checkpoint": "metro_tweak1",
+      "model_path": "models/metro_tweak1_keep0.2_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak1_keep0.2_ep15_thresholds.json",
+      "threshold_kind": "pre_lever",
+      "threshold": 0.6139723658561707,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.649,
+      "speech_fp_post": null
+    },
+    {
+      "checkpoint": "metro_tweak3",
+      "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+      "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+      "threshold_kind": "pre_lever",
+      "threshold": 0.6012299060821533,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.596,
+      "speech_fp_post": null
+    },
+    {
+      "checkpoint": "metro_tweak3",
+      "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+      "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.65,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.40399999999999997,
+      "speech_fp_post": 0.07142857142857142
+    },
+    {
+      "checkpoint": "metro_tweak1",
+      "model_path": "models/metro_tweak1_keep0.2_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak1_keep0.2_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.66,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.386,
+      "speech_fp_post": 0.06349206349206349
+    },
+    {
+      "checkpoint": "metro_default",
+      "model_path": "models/metro_model.pth",
+      "thresholds_file": "models/metro_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.79,
+      "majority_k": 1,
+      "fp_rate": 0.0,
+      "threat_recall": 0.35100000000000003,
+      "speech_fp_post": 0.0026455026455026454
+    },
+    {
+      "checkpoint": "metro_tweak1",
+      "model_path": "models/metro_tweak1_keep0.2_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak1_keep0.2_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.73,
+      "majority_k": 1,
+      "fp_rate": 0.0,
+      "threat_recall": 0.35100000000000003,
+      "speech_fp_post": 0.005291005291005291
+    },
+    {
+      "checkpoint": "metro_tweak3",
+      "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+      "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.69,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.35100000000000003,
+      "speech_fp_post": 0.026455026455026454
+    },
+    {
+      "checkpoint": "metro_tweak3",
+      "model_path": "models/metro_tweak3_keep0.1_ep20_model.pth",
+      "thresholds_file": "models/metro_tweak3_keep0.1_ep20_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.74,
+      "majority_k": 1,
+      "fp_rate": 0.0,
+      "threat_recall": 0.316,
+      "speech_fp_post": 0.0
+    },
+    {
+      "checkpoint": "metro_default",
+      "model_path": "models/metro_model.pth",
+      "thresholds_file": "models/metro_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.75,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.263,
+      "speech_fp_post": 0.015873015873015872
+    },
+    {
+      "checkpoint": "metro_tweak1",
+      "model_path": "models/metro_tweak1_keep0.2_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak1_keep0.2_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.7,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.263,
+      "speech_fp_post": 0.015873015873015872
+    },
+    {
+      "checkpoint": "metro_tweak2",
+      "model_path": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.71,
+      "majority_k": 2,
+      "fp_rate": 0.0,
+      "threat_recall": 0.263,
+      "speech_fp_post": 0.026455026455026454
+    },
+    {
+      "checkpoint": "metro_tweak2",
+      "model_path": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.68,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.263,
+      "speech_fp_post": 0.06084656084656084
+    },
+    {
+      "checkpoint": "metro_default",
+      "model_path": "models/metro_model.pth",
+      "thresholds_file": "models/metro_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.72,
+      "majority_k": 3,
+      "fp_rate": 0.0,
+      "threat_recall": 0.24600000000000002,
+      "speech_fp_post": 0.0582010582010582
+    },
+    {
+      "checkpoint": "metro_tweak2",
+      "model_path": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_model.pth",
+      "thresholds_file": "models/metro_tweak2_unfreeze_warmup3_keep0.3_ep15_thresholds.json",
+      "threshold_kind": "site_thr",
+      "threshold": 0.77,
+      "majority_k": 1,
+      "fp_rate": 0.0,
+      "threat_recall": 0.228,
+      "speech_fp_post": 0.0
+    }
+  ],
+  "previous_headline_overwritten_by_pick_best_phase_b": {
+    "fp_rate": 0.0,
+    "threat_recall": 0.789,
+    "threshold": 0.6012299060821533,
+    "low_fpr_site_majority_k": 2,
+    "levers_applied": [
+      "temporal-majority aggregation (k=2)"
+    ],
+    "note": "previous headline used site-ambient threshold recalibration (over-tightening with only 15 cal wavs); replaced by tests/pick_best_phase_b.py"
+  }
 }

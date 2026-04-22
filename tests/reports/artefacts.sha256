@@ -5,5 +5,6 @@ cf727ca3e392255eb31f9356a215da705014d2482b33c98d740e1a28bcbabf16  models/metro_t
 f41245f4c7d8592b9c0e7d44cf510d6dda2727b1c60462ddac4714e49337f07c  models/safecommute_v2.onnx  (6.99 MB)
 1d5f8a2375fdc3a6b2a454035d85a12239cfdb2caf81f344b4d61680f34c781f  models/safecommute_v2.pth  (7.00 MB)
 4365138344c9fb4e0a55835297cb65d4860c907ed4814aa98604f76bc01d81ad  models/safecommute_v2_fused.onnx  (6.99 MB)
+4ae542ca07b1baedd50c187db86bca1e36ffa37e984d607727b2be660dec4bde  models/safecommute_v2_gamma3.pth  (7.00 MB)
 31a56530c9b7aae995e37f1ef3a3ac034c407ff6e595c9a0034fba5aeba43e4b  models/safecommute_v2_int8.onnx  (3.72 MB)
 47d8a4545011cb9223e49ccdddb4e99921055d85a91255678d660dac9e5827b4  models/safecommute_v2_int8.pth  (5.06 MB)

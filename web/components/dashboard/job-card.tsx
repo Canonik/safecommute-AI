@@ -80,12 +80,26 @@ export function JobCard({ id, status, siteName, createdAt, modelPath, error }: P
             </div>
           )}
           {status === "succeeded" && modelPath && (
-            <a
-              href={`/api/finetune/${id}/download`}
-              className="mt-4 inline-flex items-center border-3 border-ink bg-ink text-paper px-4 py-2 font-display uppercase text-sm tracking-tight hover:bg-bauhaus-red transition-colors"
-            >
-              Download model ↓
-            </a>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={`/api/finetune/${id}/download?file=model`}
+                className="inline-flex items-center border-3 border-ink bg-ink text-paper px-4 py-2 font-display uppercase text-sm tracking-tight hover:bg-bauhaus-red transition-colors"
+              >
+                Model .onnx ↓
+              </a>
+              <a
+                href={`/api/finetune/${id}/download?file=thresholds`}
+                className="inline-flex items-center border-3 border-ink bg-paper text-ink px-4 py-2 font-display uppercase text-sm tracking-tight hover:bg-bauhaus-yellow transition-colors"
+              >
+                Thresholds ↓
+              </a>
+              <a
+                href={`/api/finetune/${id}/download?file=report`}
+                className="inline-flex items-center border-3 border-ink bg-paper text-ink px-4 py-2 font-display uppercase text-sm tracking-tight hover:bg-bauhaus-blue hover:text-paper transition-colors"
+              >
+                Deployment report ↓
+              </a>
+            </div>
           )}
         </div>
         <div className="col-span-12 md:col-span-5 relative border-3 border-ink h-24 md:h-full min-h-[120px]">

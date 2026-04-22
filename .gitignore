@@ -198,6 +198,7 @@ web/node_modules/
 web/.next/
 web/out/
 web/.env*
+!web/.env.example
 web/.DS_Store
 *.tsbuildinfo
 next-env.d.ts

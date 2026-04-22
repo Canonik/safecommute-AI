@@ -133,7 +133,7 @@ def main():
             md.append(
                 f"| {b.get('site', name)} | "
                 f"{(b.get('fp_rate') or 0.0)*100:.1f}% (target ≤5%) | "
-                f"{(b.get('threat_recall') or 0.0)*100:.1f}% (target ≥86%) | "
+                f"{(b.get('threat_recall') or 0.0)*100:.1f}% (target ≥88%) | "
                 f"{(b.get('speech_fp_post') or 0.0)*100:.1f}% (target ≤10%) | "
                 f"{'PASS' if b.get('determinism_ok') else 'FAIL'} | "
                 f"{'PASS' if b.get('silence_gate_ok') else 'FAIL'} |")

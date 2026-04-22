@@ -22,6 +22,13 @@ Signal processing pipeline:
   6. Temporal smoothing: moving average over SMOOTHING_WINDOW (4) consecutive
      predictions. This reduces single-frame false positives — a brief cough
      might spike one window but won't sustain across 4 seconds.
+  6b. Temporal-majority aggregation (MAJORITY_K): independent of (6), a red
+     alert fires only when the RAW (un-smoothed) probability has been over
+     the red threshold for MAJORITY_K consecutive strides. Any sub-threshold
+     stride resets the counter. Smoother = amplitude criterion, majority gate
+     = duration criterion — together they suppress single-window spikes from
+     speech/crowd that dominated the metro deployment-gap tweak plateau
+     (paper.md §1.4, §7). Set MAJORITY_K=1 to disable.
   7. Dual thresholds: amber (warning) and red (alert) levels.
      - Below amber: green (safe).
      - Between amber and red: amber (elevated, monitoring).
@@ -61,6 +68,14 @@ CHUNK_SIZE         = int(SAMPLE_RATE * STRIDE_SEC)     # 16000 samples per read
 BUFFER_SIZE        = int(SAMPLE_RATE * CONTEXT_WINDOW_SEC)  # 48000 rolling buffer
 SMOOTHING_WINDOW   = 4       # Moving average over 4 predictions (~4 seconds)
 ENERGY_GATE_RMS    = 0.003   # Below this RMS, audio is considered silence
+# Temporal-majority aggregation: alert only when the *raw* (un-smoothed)
+# per-stride probability has been >= the effective red threshold for
+# MAJORITY_K consecutive strides. Complements — does not replace — the
+# 4-frame smoother. The smoother attenuates amplitude; the majority gate
+# enforces duration. Together they suppress single-window spikes from
+# speech / metal / crowd that dominated the architecture-preserving tweak
+# plateau (paper.md §1.4, §7). Set MAJORITY_K=1 to disable (pre-gate behaviour).
+MAJORITY_K         = 2
 PREFERRED_MIC      = None    # Set to substring of mic name to auto-select
 
 # Speech-aware thresholding: when stable speech is detected, raise the
@@ -227,7 +242,8 @@ def main():
     print("  SAFECOMMUTE AI  —  LIVE INFERENCE ACTIVE")
     print("  GDPR mode: RAM only. No audio recorded.")
     print(f"  Smoothing: {SMOOTHING_WINDOW} strides | "
-          f"VAD gate RMS: {ENERGY_GATE_RMS}")
+          f"VAD gate RMS: {ENERGY_GATE_RMS} | "
+          f"Majority-k: {MAJORITY_K}")
     print(f"  Amber >= {amber_thresh:.2f}  |  Red >= {red_thresh:.2f}")
     print(f"  Speech-aware: threshold -> {SPEECH_THRESH_BOOST:.2f} "
           f"when speech detected")
@@ -235,6 +251,7 @@ def main():
 
     audio_buffer = np.zeros(BUFFER_SIZE, dtype=np.float32)
     prob_history = collections.deque(maxlen=SMOOTHING_WINDOW)
+    consecutive_over = 0   # counts consecutive strides with raw_unsafe >= red
     last_status  = None
 
     # ── Auto-calibrate: measure ambient baseline for 3 seconds ────────
@@ -297,7 +314,23 @@ def main():
             bar = "█" * int(smoothed * 20) + "░" * (20 - int(smoothed * 20))
             speech_tag = "🗣️" if is_speech else "  "
 
-            if smoothed >= eff_red:
+            # Temporal-majority gate: count consecutive strides whose RAW
+            # (pre-smoothing) prob is >= red. We alert only when (smoothed
+            # >= red) AND (consecutive_over >= MAJORITY_K). The smoothed
+            # check is the amplitude criterion; the counter is the duration
+            # criterion. Resetting on any sub-threshold stride enforces
+            # strict consecutiveness — a single quiet window clears the gate
+            # and starts it over.
+            if raw_unsafe >= eff_red:
+                consecutive_over += 1
+            else:
+                consecutive_over = 0
+
+            smoothed_red = smoothed >= eff_red
+            majority_ok = consecutive_over >= MAJORITY_K
+            fire_red = smoothed_red and majority_ok
+
+            if fire_red:
                 status = "🔴 ALERT  "
             elif smoothed >= eff_amber:
                 status = "🟠 WARNING"
@@ -305,9 +338,11 @@ def main():
                 status = "🟢 SAFE   "
 
             line = (f"[{ts}] {status} {speech_tag} [{bar}] {smoothed:.2f} "
-                    f"(raw={raw_unsafe:.2f}, RMS={rms:.3f})")
+                    f"(raw={raw_unsafe:.2f}, "
+                    f"k={consecutive_over}/{MAJORITY_K}, "
+                    f"RMS={rms:.3f})")
 
-            if smoothed >= eff_red:
+            if fire_red:
                 print(f"\n{'!'*58}")
                 print(f"  {line}  ESCALATION DETECTED!")
                 print(f"{'!'*58}")

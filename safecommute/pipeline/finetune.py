@@ -165,6 +165,17 @@ def main():
                         help='Epochs with CNN frozen before unfreezing (default: 0)')
     parser.add_argument('--keep-safe-ratio', type=float, default=0.5,
                         help='Ratio of base safe data to keep (default: 0.5)')
+    parser.add_argument('--calibration-ambient-dir', type=str, default=None,
+                        help='Directory of held-out site ambient .wav files '
+                             '(never seen during fine-tuning) used ONLY to '
+                             'calibrate a site-specific "low_fpr_site" '
+                             'threshold. Recommended: a held-out 20%% split '
+                             'of the target-site ambient pool. If absent, '
+                             'only the combined-test-set low_fpr is emitted.')
+    parser.add_argument('--calibration-majority-k', type=int, default=2,
+                        help='Temporal-majority aggregation k for the site '
+                             'threshold sweep (default: 2). See '
+                             'test_deployment.py --majority-k.')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
 
@@ -402,6 +413,90 @@ def main():
     print(f"  Youden's J:   {youden_thresh:.3f}")
     print(f"  F1-optimal:   {best_f1_thresh:.3f} (F1={best_f1_val:.3f})")
     print(f"  Low-FPR (5%): {low_fpr_thresh:.3f}")
+
+    # ── Step 7b: Site-ambient threshold recalibration ─────────────────
+    # The low_fpr above is calibrated on the combined test distribution
+    # (universal test + ambient chunks). That distribution is not the
+    # distribution the deployed model actually faces — a real metro
+    # station has different speech/platform/announcement mix than the
+    # universal test pool. Recalibrate on a held-out ambient directory
+    # from the target site, using sliding-window inference (matches the
+    # production inference.py semantics) and temporal-majority
+    # aggregation. Emit the result as `low_fpr_site`, a separate key so
+    # downstream code can choose between the two without losing either.
+    if args.calibration_ambient_dir and os.path.isdir(args.calibration_ambient_dir):
+        from safecommute.pipeline.test_deployment import (
+            load_model_and_stats, sliding_window_inference, fires,
+        )
+        print(f"\n  Calibrating site threshold on: "
+              f"{args.calibration_ambient_dir} "
+              f"(majority_k={args.calibration_majority_k})")
+
+        # Save a temporary checkpoint to disk so load_model_and_stats reuses
+        # the exact same loader the deployment runtime uses.
+        save_dir = 'models'
+        os.makedirs(save_dir, exist_ok=True)
+        tmp_ckpt = os.path.join(save_dir, f"{args.environment}_tmp_for_calib.pth")
+        torch.save(model.state_dict(), tmp_ckpt)
+        try:
+            cal_model, cal_mean, cal_std = load_model_and_stats(tmp_ckpt)
+            wavs = sorted(f for f in os.listdir(args.calibration_ambient_dir)
+                          if f.endswith('.wav'))
+            if not wavs:
+                print("  WARNING: calibration dir contains no .wav files — "
+                      "skipping site recalibration.")
+                site_thresh = None
+                sweep = []
+            else:
+                per_wav_probs = []
+                for name in wavs:
+                    path = os.path.join(args.calibration_ambient_dir, name)
+                    import librosa
+                    y, _ = librosa.load(path, sr=SAMPLE_RATE, mono=True)
+                    per_wav_probs.append(
+                        sliding_window_inference(cal_model, y, cal_mean,
+                                                 cal_std, 0.5))
+
+                candidate_thresholds = np.round(
+                    np.arange(0.30, 0.951, 0.01), 3)
+                sweep = []
+                for t in candidate_thresholds:
+                    fires_count = sum(
+                        1 for probs in per_wav_probs
+                        if fires(probs, float(t), args.calibration_majority_k))
+                    fp = fires_count / len(per_wav_probs)
+                    sweep.append({'threshold': float(t), 'fp_rate': fp})
+
+                # Highest threshold where site-FP ≤ 5 % (keeps recall as
+                # high as possible subject to the FP budget).
+                site_thresh = None
+                for row in sweep:
+                    if row['fp_rate'] <= 0.05:
+                        site_thresh = row['threshold']
+                        break
+                # Clamp to the same sanity band used for low_fpr.
+                if site_thresh is not None:
+                    site_thresh = float(max(0.30, min(0.95, site_thresh)))
+
+            if site_thresh is not None:
+                thresholds['low_fpr_site'] = site_thresh
+                thresholds['low_fpr_site_majority_k'] = args.calibration_majority_k
+                thresholds['low_fpr_site_calibration_dir'] = args.calibration_ambient_dir
+                thresholds['low_fpr_site_sweep'] = sweep
+                print(f"  Low-FPR site: {site_thresh:.3f} "
+                      f"(k={args.calibration_majority_k}, "
+                      f"n_wavs={len(wavs) if wavs else 0})")
+            else:
+                thresholds['low_fpr_site_sweep'] = sweep
+                print(f"  Low-FPR site: NO threshold achieves site-FP ≤ 5% "
+                      f"(k={args.calibration_majority_k}) — sweep saved anyway")
+        finally:
+            if os.path.exists(tmp_ckpt):
+                os.remove(tmp_ckpt)
+    elif args.calibration_ambient_dir:
+        print(f"\n  WARNING: --calibration-ambient-dir "
+              f"'{args.calibration_ambient_dir}' not a directory; skipping "
+              f"site recalibration.")
 
     # ── Step 8: Save ─────────────────────────────────────────────────
     os.makedirs('models', exist_ok=True)

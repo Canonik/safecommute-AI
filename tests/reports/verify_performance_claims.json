@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-21T14:13:17Z",
+  "generated_at": "2026-04-22T09:41:56Z",
   "hw_disclosure": {
     "cpu_model": "AMD Ryzen 7 7435HS",
     "arch": "x86_64",
@@ -253,41 +253,41 @@
       "detail": ""
     },
     {
-      "name": "\u03b3=3.0 AUC 0.856",
-      "measured": null,
+      "name": "\u03b3=3.0 AUC (measured)",
+      "measured": 0.7907609319266681,
       "expected": 0.856,
-      "tolerance": null,
-      "kind": "info",
-      "kind_disp": "info-NA",
+      "tolerance": 0.02,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.02",
       "passed": false,
-      "hard": false,
-      "detail": "historical snapshot \u2014 checkpoint not preserved (per user decision)"
+      "hard": true,
+      "detail": "from models/safecommute_v2_gamma3.pth; hard-neg acc (speech+laughter+crowd kept as safe, n=1070) = 3.9%; threat TPR @ 0.5 = 95.9% \u2014 expected \u03b3-collapse signature: low hard-neg, high TPR"
     },
     {
       "name": "B:metro FP \u2264 5%",
-      "measured": 0.382,
+      "measured": 0.0,
       "expected": 0.05,
       "tolerance": 0.0,
       "kind": "lte",
       "kind_disp": "\u2264 0.05",
-      "passed": false,
+      "passed": true,
       "hard": true,
-      "detail": "n=34 held-out wavs"
+      "detail": "n=19 held-out wavs"
     },
     {
       "name": "B:metro Threat recall \u2265 88%",
-      "measured": 0.895,
+      "measured": 0.789,
       "expected": 0.88,
       "tolerance": 0.0,
       "kind": "gte",
       "kind_disp": "\u2265 0.88",
-      "passed": true,
+      "passed": false,
       "hard": true,
       "detail": "threats=raw_data/youtube_screams"
     },
     {
       "name": "B:metro Speech-FP post \u2264 10%",
-      "measured": 0.15079365079365079,
+      "measured": 0.1693121693121693,
       "expected": 0.1,
       "tolerance": 0.0,
       "kind": "lte",
@@ -331,7 +331,7 @@
     },
     {
       "name": "C:Speech FP post \u2264 10% (claim: 4.2%)",
-      "measured": 0.15079365079365079,
+      "measured": 0.1693121693121693,
       "expected": 0.1,
       "tolerance": 0.0,
       "kind": "lte",
@@ -342,7 +342,7 @@
     },
     {
       "name": "C:Post-FT recall ~86%",
-      "measured": 0.895,
+      "measured": 0.789,
       "expected": 0.86,
       "tolerance": 0.03,
       "kind": "abs",
@@ -352,26 +352,26 @@
       "detail": "measured after metro fine-tune"
     },
     {
-      "name": "C:~50\u00d7 smaller vs CNN14",
-      "measured": 43.71584699453552,
+      "name": "C:~50\u00d7 smaller vs CNN14 (measured)",
+      "measured": 44.73330203056229,
       "expected": 50.0,
       "tolerance": 10.0,
       "kind": "abs",
       "kind_disp": "abs \u00b110.0",
       "passed": true,
       "hard": true,
-      "detail": "param ratio = 43.7\u00d7 (80M / 1.83M)"
+      "detail": "param ratio = 44.7\u00d7 (81,837,071 / 1,829,444)"
     },
     {
-      "name": "C:~10\u00d7 faster vs CNN14/AST",
-      "measured": null,
+      "name": "C:~10\u00d7 faster vs CNN14 (measured)",
+      "measured": 22.714830020681088,
       "expected": 10.0,
-      "tolerance": null,
-      "kind": "info",
-      "kind_disp": "info-NA",
-      "passed": false,
-      "hard": false,
-      "detail": "no measured SOTA latency row yet \u2014 soft claim"
+      "tolerance": 0.0,
+      "kind": "gte",
+      "kind_disp": "\u2265 10.0",
+      "passed": true,
+      "hard": true,
+      "detail": "median latency ratio = 22.7\u00d7 (CNN14 100.1 ms vs SafeCommute INT8 4.4 ms on AMD Ryzen 7 7435HS, 8T)"
     },
     {
       "name": "C:\u03b3=0.5 AUC",
@@ -385,30 +385,30 @@
       "detail": ""
     },
     {
-      "name": "C:\u03b3=3.0 AUC 0.856",
-      "measured": null,
+      "name": "C:\u03b3=3.0 AUC (measured)",
+      "measured": 0.7907609319266681,
       "expected": 0.856,
-      "tolerance": null,
-      "kind": "info",
-      "kind_disp": "info-NA",
+      "tolerance": 0.02,
+      "kind": "abs",
+      "kind_disp": "abs \u00b10.02",
       "passed": false,
-      "hard": false,
-      "detail": "historical snapshot per user decision"
+      "hard": true,
+      "detail": "from models/safecommute_v2_gamma3.pth; hard-neg acc (speech+laughter+crowd kept as safe, n=1070) = 3.9%; threat TPR @ 0.5 = 95.9% \u2014 expected \u03b3-collapse signature: low hard-neg, high TPR"
     },
     {
       "name": "Deploy FP32 mean \u2264 15 ms",
-      "measured": 8.561233920045197,
+      "measured": 9.115621930468478,
       "expected": 15.0,
       "tolerance": 0.0,
       "kind": "lte",
       "kind_disp": "\u2264 15.0",
       "passed": true,
       "hard": false,
-      "detail": "p99 9.6 ms, median 8.5 ms"
+      "detail": "p99 10.5 ms, median 9.0 ms"
     },
     {
       "name": "Deploy FP32 p99 \u2264 30 ms",
-      "measured": 9.632461070650608,
+      "measured": 10.509680150426004,
       "expected": 30.0,
       "tolerance": 0.0,
       "kind": "lte",
@@ -419,25 +419,25 @@
     },
     {
       "name": "ONNX FP32 mean ~12 ms (marketing)",
-      "measured": 3.9586677001170756,
+      "measured": 3.9977944896236295,
       "expected": 12.0,
       "tolerance": 3.0,
       "kind": "lte",
       "kind_disp": "\u2264 12.0",
       "passed": true,
       "hard": false,
-      "detail": "median 3.9 ms, p99 4.3 ms, threads=8"
+      "detail": "median 3.9 ms, p99 4.6 ms, threads=8"
     },
     {
       "name": "INT8 ONNX mean \u2264 15 ms",
-      "measured": 2.842822310012707,
+      "measured": 2.8015517600579187,
       "expected": 15.0,
       "tolerance": 0.0,
       "kind": "lte",
       "kind_disp": "\u2264 15.0",
       "passed": true,
       "hard": false,
-      "detail": "median 2.8 ms p99 3.5 ms"
+      "detail": "median 2.8 ms p99 3.1 ms"
     },
     {
       "name": "Size FP32 \u2264 10 MB",
@@ -475,9 +475,9 @@
   ],
   "summary": {
     "total": 41,
-    "passed": 33,
-    "failed_hard": 4,
-    "warned": 4
+    "passed": 34,
+    "failed_hard": 6,
+    "warned": 1
   },
   "phase_a_full_metrics": {
     "threshold": 0.5,

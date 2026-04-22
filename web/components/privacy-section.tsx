@@ -21,18 +21,27 @@ export function PrivacySection() {
               <span>Privacy architecture</span>
             </div>
             <h2 className="font-display uppercase text-5xl md:text-7xl leading-[0.9] tracking-tight">
-              No audio <span className="text-bauhaus-red">leaves</span> <br /> the device <br /> at inference.
+              At inference, no audio <span className="text-bauhaus-red">leaves</span> the device.
+              <br />For fine-tuning, audio is <span className="text-bauhaus-red">ephemeral</span>.
             </h2>
           </div>
           <div className="col-span-12 md:col-span-4 font-body text-base leading-snug md:pt-16">
             <p className="mb-3">
-              PCEN is lossy by construction. The raw waveform is <strong>mathematically unrecoverable</strong> from the
-              spectrogram tiles the classifier consumes.
+              <strong>Inference (edge box):</strong> PCEN is lossy by construction — the raw waveform is
+              <strong> mathematically unrecoverable</strong> from the spectrogram tiles the classifier
+              consumes. This is a structural guarantee, not a policy promise.
+            </p>
+            <p className="mb-3">
+              <strong>Fine-tuning (paid flow):</strong> uploads move over TLS to a private Supabase
+              bucket, are processed into non-invertible PCEN features the moment the worker picks them
+              up, and the raw <code className="font-mono text-[12px]">.wav</code> files are
+              <strong> deleted at the end of the training run</strong>. Only the derived INT8 model
+              weights persist, and those expose no reconstructible audio.
             </p>
             <p className="text-ink/70">
-              At inference this is a structural guarantee — not a policy promise. For paid fine-tuning,
-              audio is uploaded over TLS, processed, and deleted after training. Client-side PCEN is on
-              the roadmap so paid uploads become spectrograms too.
+              Client-side PCEN (so raw audio never touches the bucket at all) is on the roadmap —
+              tracked as option (a) in the privacy hardening list. Current state is option (b):
+              encrypted transit + ephemeral bucket + PCEN-only persistence.
             </p>
           </div>
         </div>
