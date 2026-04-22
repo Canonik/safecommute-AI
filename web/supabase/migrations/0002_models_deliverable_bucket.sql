@@ -1,25 +1,30 @@
 -- 0002_models_deliverable_bucket.sql
 -- Companion to 0001_init.sql. Adds the output bucket the background worker
--- (worker/main.py) writes fine-tune artefacts to, with RLS that scopes reads
--- to {owner}/<...> object paths.
+-- (worker/main.py) writes fine-tune artefacts to, plus the worker_logs
+-- table that carries tracebacks when a job fails.
 --
--- Run after 0001_init.sql (e.g. `supabase db push` or paste into the SQL editor).
--- Idempotent — `on conflict do update` on the bucket row, `drop if exists` on
--- policies.
+-- Run after 0001_init.sql (e.g. `supabase db push` or paste into the SQL
+-- editor). Idempotent: `on conflict do update` on the bucket row, `drop
+-- if exists` on policies, `create table if not exists` on the log table.
 
 -- ---------------------------------------------------------------------------
 -- MODELS-DELIVERABLE — private bucket for fine-tuned artefacts.
 -- Worker writes three files per succeeded job under
---   {owner_id}/{job_id}/model.onnx
---   {owner_id}/{job_id}/thresholds.json
---   {owner_id}/{job_id}/deployment_report.json
--- No size_limit per-file (artefacts are ~4 MB INT8 ONNX + small JSONs), but
--- we scope allowed_mime_types for defence-in-depth.
+--   {owner_id}/{job_id}/model.onnx               (sent as application/octet-stream)
+--   {owner_id}/{job_id}/thresholds.json          (sent as application/json)
+--   {owner_id}/{job_id}/deployment_report.json   (sent as application/json)
+-- Size cap is per-file; artefacts are ~4 MB INT8 ONNX + small JSONs.
+-- Note: ONNX has no registered IANA mime type. The worker uploads .onnx
+-- files as `application/octet-stream` (worker/job.py:process_job), so the
+-- allow-list stays tight. Earlier drafts included `application/x-onnx` /
+-- `model/onnx`; some projects' storage-schema policies reject those,
+-- causing this INSERT to silently fail while downstream CREATE TABLEs
+-- still commit (SQL editor runs statements with implicit-commit per
+-- batch, not as one transaction).
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('models-deliverable', 'models-deliverable', false, 52428800,
-        array['application/octet-stream', 'application/json',
-              'application/x-onnx', 'model/onnx'])
+        array['application/octet-stream', 'application/json'])
 on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;

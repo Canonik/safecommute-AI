@@ -41,6 +41,7 @@ import tempfile
 import traceback
 from typing import Any, Dict, List, Tuple
 
+from .env import env_float, env_int, env_str
 from .export import export_int8_onnx
 from .supabase_client import Supabase
 
@@ -48,15 +49,17 @@ log = logging.getLogger(__name__)
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-CLIPS_BUCKET = os.environ.get("CLIPS_BUCKET", "audio-uploads")
-MODEL_BUCKET = os.environ.get("MODEL_BUCKET", "models-deliverable")
+CLIPS_BUCKET = env_str("CLIPS_BUCKET", "audio-uploads")
+MODEL_BUCKET = env_str("MODEL_BUCKET", "models-deliverable")
 
 # Tweak-3 recipe (paper.md §1.4). Kept as constants so the worker's recipe is
 # visible at a glance and overridable per env (e.g. for cheaper dev runs).
-FT_KEEP_SAFE_RATIO = float(os.environ.get("FT_KEEP_SAFE_RATIO", "0.1"))
-FT_EPOCHS = int(os.environ.get("FT_EPOCHS", "20"))
-FT_LR = float(os.environ.get("FT_LR", "1e-4"))
-MAJORITY_K = int(os.environ.get("MAJORITY_K", "2"))
+# env_{int,float,str} strip any accidental inline `# comment` from a
+# systemd EnvironmentFile line — see worker/env.py for why that matters.
+FT_KEEP_SAFE_RATIO = env_float("FT_KEEP_SAFE_RATIO", 0.1)
+FT_EPOCHS = env_int("FT_EPOCHS", 20)
+FT_LR = env_float("FT_LR", 1e-4)
+MAJORITY_K = env_int("MAJORITY_K", 2)
 
 
 def _split_clips_80_20(clips: List[Dict[str, Any]], salt: str

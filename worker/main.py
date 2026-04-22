@@ -25,10 +25,11 @@ import signal
 import sys
 import time
 
+from .env import env_int
 from .job import run_job_safely
 from .supabase_client import Supabase
 
-POLL_INTERVAL_S = int(os.environ.get("WORKER_POLL_INTERVAL_S", "15"))
+POLL_INTERVAL_S = env_int("WORKER_POLL_INTERVAL_S", 15)
 SHUTDOWN = False
 
 
