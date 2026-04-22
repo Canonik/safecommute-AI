@@ -118,9 +118,16 @@ def _run_pipeline(env_name: str, ambient_dir: str, calib_dir: str,
     log.info("running %s", " ".join(cmd))
     result = subprocess.run(cmd, cwd=REPO, env=env,
                             capture_output=True, text=True, timeout=3600)
+    # Always log the subprocess output so failures are diagnosable from the
+    # worker's journal, not just the raised exception.
+    if result.stdout:
+        log.info("finetune.py stdout tail:\n%s", result.stdout[-2000:])
+    if result.stderr:
+        log.info("finetune.py stderr tail:\n%s", result.stderr[-2000:])
     if result.returncode != 0:
         raise RuntimeError(
             f"finetune.py exit {result.returncode}\n"
+            f"stdout tail:\n{result.stdout[-1000:]}\n"
             f"stderr tail:\n{result.stderr[-2000:]}")
 
     # finetune.py always writes to models/{env_name}_model.pth — move it to
@@ -129,7 +136,11 @@ def _run_pipeline(env_name: str, ambient_dir: str, calib_dir: str,
     produced_pth = os.path.join(REPO, "models", f"{env_name}_model.pth")
     produced_thresh = os.path.join(REPO, "models", f"{env_name}_thresholds.json")
     if not os.path.exists(produced_pth):
-        raise RuntimeError(f"finetune.py did not produce {produced_pth}")
+        raise RuntimeError(
+            f"finetune.py exit 0 but {produced_pth} missing — this usually "
+            f"means 0 ambient chunks were processed (unsupported file "
+            f"extension, unreadable audio, or all clips < 1s). stdout tail:"
+            f"\n{result.stdout[-2000:]}")
     shutil.move(produced_pth, save_model)
     shutil.move(produced_thresh, save_thresh)
 

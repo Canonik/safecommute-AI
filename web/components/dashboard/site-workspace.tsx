@@ -183,8 +183,8 @@ export function SiteWorkspace({
               Upload ambient clips
             </div>
             <div className="font-grotesk text-sm mt-4 max-w-md mx-auto">
-              WAV / MP3 / FLAC · 16 kHz mono preferred · 25 MB per file · min 3 clips
-              recommended to kick off a tune.
+              WAV / MP3 / M4A / MP4 / MOV / FLAC · 16 kHz mono preferred · 25 MB per file · min 3
+              clips recommended to kick off a tune.
             </div>
           </div>
         </label>

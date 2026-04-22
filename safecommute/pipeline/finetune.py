@@ -85,10 +85,22 @@ def load_stats():
     return s['mean'], s['std']
 
 
+AMBIENT_EXTENSIONS = (
+    # audio containers
+    '.wav', '.mp3', '.m4a', '.flac', '.aac', '.ogg', '.opus',
+    # video containers — iPhone / Android cameras + screen recorders often
+    # emit these even for audio-only recordings. librosa.load goes through
+    # ffmpeg via audioread, so it pulls the audio track transparently.
+    '.mp4', '.mov', '.webm',
+)
+
+
 def process_ambient_audio(ambient_dir, output_dir):
     """
-    Process ambient .wav files into .pt spectrograms in a temp directory.
-    All files are treated as safe (label=0).
+    Process ambient audio files into .pt spectrograms in a temp directory.
+    Accepts the common audio + video containers customers upload from
+    phones; librosa.load transparently extracts the audio track. All
+    files are treated as safe (label=0).
     Returns count of processed chunks.
     """
     safe_dir = os.path.join(output_dir, '0_safe')
@@ -98,7 +110,7 @@ def process_ambient_audio(ambient_dir, output_dir):
 
     count = 0
     for fname in sorted(os.listdir(ambient_dir)):
-        if not fname.endswith('.wav'):
+        if not fname.lower().endswith(AMBIENT_EXTENSIONS):
             continue
         path = os.path.join(ambient_dir, fname)
         try:
@@ -108,7 +120,12 @@ def process_ambient_audio(ambient_dir, output_dir):
 
             # Chunk long audio into 3-second windows
             chunks = chunk_audio(y)
-            base = fname.replace('.wav', '')
+            # Strip whichever extension matched (case-insensitive).
+            base = fname
+            for ext in AMBIENT_EXTENSIONS:
+                if base.lower().endswith(ext):
+                    base = base[: -len(ext)]
+                    break
             for i, chunk in enumerate(chunks):
                 features = extract_features(chunk)
                 out_path = os.path.join(safe_dir, f"ambient_{base}_c{i:03d}.pt")
@@ -200,9 +217,14 @@ def main():
     print(f"  Processed {n_ambient} ambient chunks → safe class")
 
     if n_ambient == 0:
-        print("  ERROR: No ambient audio processed. Check --ambient-dir.")
+        # Must fail loudly so the calling worker (worker/job.py) marks the
+        # job failed and surfaces this to the customer — otherwise the run
+        # looks like an opaque "finetune.py did not produce <pth>".
+        print(f"  ERROR: No ambient audio processed. Check --ambient-dir "
+              f"({args.ambient_dir}). Accepted extensions: "
+              f"{', '.join(AMBIENT_EXTENSIONS)}.")
         shutil.rmtree(tmp_dir)
-        return
+        sys.exit(1)
 
     # ── Step 3: Build fine-tuning dataset ────────────────────────────
     print("\n  Building fine-tuning dataset...")

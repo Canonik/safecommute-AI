@@ -149,8 +149,19 @@ create policy "payments self-read" on public.payments
 -- ---------------------------------------------------------------------------
 -- STORAGE BUCKET — audio-uploads (private, per-user folder).
 -- ---------------------------------------------------------------------------
+-- allowed_mime_types covers audio containers + the video containers iPhone /
+-- Android cameras emit for audio-only recordings (Voice Memos export to
+-- audio/mp4, but Photos-app recordings arrive as video/mp4 or
+-- video/quicktime). The worker's librosa.load -> ffmpeg path extracts the
+-- audio track transparently, so we accept the wider set here and let the
+-- server-side pipeline normalise.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('audio-uploads', 'audio-uploads', false, 26214400, array['audio/wav','audio/x-wav','audio/wave','audio/mpeg','audio/mp4','audio/flac'])
+values ('audio-uploads', 'audio-uploads', false, 26214400,
+        array['audio/wav','audio/x-wav','audio/wave',
+              'audio/mpeg','audio/mp3',
+              'audio/mp4','audio/m4a','audio/aac',
+              'audio/flac','audio/ogg','audio/opus',
+              'video/mp4','video/quicktime','video/webm'])
 on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
