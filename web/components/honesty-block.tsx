@@ -90,32 +90,33 @@ export function HonestyBlock() {
               className="relative border-3 border-ink bg-bauhaus-yellow p-6 overflow-hidden"
             >
               <div className="font-mono text-[11px] uppercase tracking-widest mb-4">
-                After site calibration (measured, n=1 site)
+                After site calibration + majority-k=2 (measured, n=1 site)
               </div>
               <div className="font-display leading-none tracking-tight">
                 <div className="text-6xl md:text-7xl mb-1">
                   <span className="line-through decoration-[6px] decoration-ink opacity-60">72%</span>
                 </div>
                 <div className="text-7xl md:text-8xl text-bauhaus-red">
-                  ~15%
+                  0.0%
                 </div>
-                <div className="mt-2 text-base uppercase tracking-tight">speech false-positive rate</div>
+                <div className="mt-2 text-base uppercase tracking-tight">FP on held-out site ambient</div>
               </div>
               <div className="mt-4 font-body text-sm">
-                Frozen CNN + GRU/FC adaptation on 30+ min of recorded ambient. Threat recall 89.5%.
-                Overall-FP plateau is 29–38%; the ≤5% deployment gate is not yet met on n=1 site.
-                Full breakdown in the paper.
+                Best honest operating point: tweak 3 + temporal-majority aggregation at k=2 clears the
+                ≤5% deployment FP gate on 19 held-out metro wavs. Recall trades from 89.5% to 78.9%.
+                Universal speech subset FP drops from 72% to 16.9%. n=1 site; ≥2 more are field-recording
+                work. Full breakdown in the paper.
               </div>
 
               {/* Shrinking bar */}
               <div className="mt-6">
                 <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest mb-1">
-                  <span>Speech FP rate</span>
+                  <span>Held-out site FP</span>
                 </div>
                 <div className="relative h-7 border-3 border-ink bg-paper overflow-hidden">
                   <motion.div
                     initial={{ width: "72%" }}
-                    animate={inView ? { width: "15%" } : { width: "72%" }}
+                    animate={inView ? { width: "1%" } : { width: "72%" }}
                     transition={{ duration: 1.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                     className="absolute inset-y-0 left-0 bg-bauhaus-red"
                   />

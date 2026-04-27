@@ -2,7 +2,9 @@
 
 Privacy-first edge audio classifier for detecting escalation in public spaces. Built at Bocconi University.
 
-**On-device inference is PCEN-only** — the transform applied before the model is non-invertible by construction. Raw audio is never persisted by [safecommute/pipeline/inference.py](safecommute/pipeline/inference.py); the rolling 3-second buffer lives in RAM.
+**Production status (2026-04-27)** — the paid fine-tune flow is live end-to-end at <https://safecommute-ai.vercel.app>. Upload → Stripe payment → background worker → INT8 ONNX + thresholds + deployment-report download all work on the production stack. Worker runs self-hosted as a systemd unit on a Ryzen 7 7435HS box ([systemd/safecommute-worker.service](systemd/safecommute-worker.service)). Stripe is currently in **test mode** — flip to live keys via [DEPLOYMENT_NEXT_STEPS.md §5](DEPLOYMENT_NEXT_STEPS.md) when ready to take real payments. Paper-side, the FP gate is closed on n=1 site (metro); ≥ 2 more recorded sites are the only remaining blocker for workshop-submittable reproducibility.
+
+**On-device inference is PCEN-only** — the transform applied before the model is non-invertible by construction. Raw audio is never persisted by [safecommute/pipeline/inference.py](safecommute/pipeline/inference.py); the rolling 3-second buffer lives in RAM. For the paid flow, raw clips upload to an ephemeral Supabase bucket and are wiped by the worker after a successful run; only the non-invertible PCEN-derived INT8 weights persist (privacy-fix option (b) in [paper.md §5](paper.md)).
 
 ## How It Works
 
@@ -66,6 +68,8 @@ PYTHONPATH=. python safecommute/pipeline/inference.py
 ```
 
 DEPLOY.md was removed; deployment content is now folded into [RESULTS.md](RESULTS.md) §Deployment and [paper.md](paper.md) §4. The gate is enforced by [safecommute/pipeline/test_deployment.py](safecommute/pipeline/test_deployment.py).
+
+For the paid web product (live at <https://safecommute-ai.vercel.app>) see [DEPLOY_WEB.md](DEPLOY_WEB.md) for the marketing-site + Supabase + Stripe foundation, [worker/README.md](worker/README.md) for the background fine-tune worker, and [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) for the operator runbook (current state + what's left before flipping Stripe to live mode).
 
 ## Training From Scratch
 

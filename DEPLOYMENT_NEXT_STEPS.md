@@ -1,8 +1,9 @@
 # Deployment Next Steps
 
-Concrete runbook to take the SafeCommute paid fine-tuning product from
-"all code landed, nothing deployed" (the 2026-04-22 state) to
-"a paying customer completes upload → pay → download on production".
+Operator runbook for the SafeCommute paid fine-tuning product. As of
+**2026-04-27**, the upload → pay → fine-tune → download flow is live on
+production — what's left is Stripe live-mode flip + marketing-copy
+hygiene + ≥ 2 more recorded sites.
 
 This document is **ordered by blocker priority** — do items in order unless
 noted. Each step is either a ≤ 30-min operator task (commands provided) or
@@ -10,31 +11,33 @@ flagged as "needs user-side action" (field recording, Stripe account setup,
 etc.).
 
 Context: see [paper.md §0 TL;DR](paper.md) for the research state,
-[VALIDATE_AND_IMPROVE.md §14](VALIDATE_AND_IMPROVE.md) for what landed this
-session, and [worker/README.md](worker/README.md) for the worker's
-per-job protocol.
+[VALIDATE_AND_IMPROVE.md §14–§15](VALIDATE_AND_IMPROVE.md) for the audit
+trail, and [worker/README.md](worker/README.md) for the worker's per-job
+protocol.
 
 ---
 
-## 0. State as of 2026-04-22
+## 0. State as of 2026-04-27
 
 | Layer | Status |
 |---|---|
-| Marketing site (`web/`) | deployed at <https://safecommute-ai.vercel.app> |
-| Supabase migration 0001 (profiles / entitlements / sites / clips / jobs / payments / `audio-uploads` bucket) | deployed, working |
-| Supabase migration **0002** (new `models-deliverable` bucket + `worker_logs` table) | **not yet applied** to the production project |
-| Trigger route (`POST /api/finetune/trigger`) | deployed, queues jobs as `status='queued'` |
-| Fine-tune worker | **code complete, not running anywhere yet** |
-| Download route (`GET /api/finetune/[id]/download`) | **code merged, needs redeploy** |
-| Dashboard download buttons | **code merged, needs redeploy** |
-| Privacy section copy (ephemeral-bucket reality) | **code merged, needs redeploy** |
+| Marketing site (`web/`) | **live** at <https://safecommute-ai.vercel.app> |
+| Supabase migration 0001 (profiles / entitlements / sites / clips / jobs / payments / `audio-uploads` bucket) | **applied**, working |
+| Supabase migration 0002 (`models-deliverable` bucket + `worker_logs` table) | **applied** (2026-04-22) |
+| Trigger route (`POST /api/finetune/trigger`) | **live** — inserts `status='queued'` |
+| Fine-tune worker (systemd user unit on Ryzen 7 7435HS) | **running** — picks up jobs every 15 s |
+| Download route (`GET /api/finetune/[id]/download`) | **live** (deployed via `vercel --prod` from `web/` on 2026-04-27) |
+| Dashboard download buttons (Model · Thresholds · Report) | **live**, verified end-to-end |
+| Privacy section copy (ephemeral-bucket reality) | **live** |
 | Stripe in test mode | working (€23 per-run credit + €100 site unlock) |
-| Stripe live mode | **never activated** |
+| Stripe live mode | **never activated** — see §5 |
+| Vercel ↔ GitHub auto-deploy | **broken** — manual `vercel --prod` from `web/` for now (see §3) |
 | Base model artefacts in git (pth + INT8 ONNX + gamma3) | present under `models/` |
-| Field-recorded sites for Phase B | **n=1 (metro YouTube clips)** — need ≥ 2 more |
+| Field-recorded sites for Phase B | **n=1 (metro YouTube clips)** — need ≥ 2 more (§7) |
 
-**Hard blocker chain for first paying customer**: 0002 migration → worker
-process running → Vercel redeploy → end-to-end smoke test.
+**What's left before "first real paying customer"**: Stripe live-mode flip
+(§5). What's left for "defensible workshop submission": ≥ 2 more sites
+(§7). Marketing-copy hygiene (§6) is launch-recommended but non-blocking.
 
 ---
 
@@ -120,17 +123,39 @@ cause is a wrong `SUPABASE_SERVICE_ROLE_KEY` — the worker will log
 
 ## 3. Redeploy the Vercel project (2 min)
 
-The download route, dashboard buttons, and privacy section copy shipped in
-commit `bcc18d9` need a production deploy.
+> **Done as of 2026-04-27** — production carries the download route, the
+> three dashboard buttons, and the new privacy-section copy. Use this
+> section as the recipe for **future** redeploys.
 
-```bash
-cd web
-vercel --prod
+**Important: GitHub → Vercel auto-deploy is broken.** Pushes to `main`
+do NOT trigger production builds (verified 2026-04-27 — three pushes
+between 2026-04-22 and 2026-04-27 left production stuck on the Apr 21
+deployment). Until the GitHub integration is reconnected (Vercel project
+→ Settings → Git → reconnect), every redeploy must be manual.
+
+The CLI invocation is sensitive to **where** it runs. The Next.js app
+lives in `web/`, not the repo root — running `vercel --prod` from
+`~/github/safecommute-AI/` uploads the entire repo (models/, raw_data/,
+prepared_data/, …) and trips the 10 MB tarball limit:
+
+```
+Error: Request body too large. Limit: 10mb
 ```
 
-If Vercel is wired to auto-deploy from `main`, a `git push origin main`
-will trigger the deploy. Watch <https://vercel.com/canonik/safecommute-ai/deployments>
-for the green "Ready" badge.
+Fix: link from `web/` and deploy from `web/`.
+
+```fish
+cd ~/github/safecommute-AI
+rm -rf .vercel              # clear any wrong-dir link
+cd web
+vercel link                 # accept defaults; pick canonik-5881s-projects/safecommute-ai
+vercel --prod               # ~2 min build
+```
+
+If Vercel ↔ GitHub auto-deploy is later restored, a `git push origin main`
+will trigger the deploy automatically; watch
+<https://vercel.com/canonik/safecommute-ai/deployments> for the green
+"Ready" badge.
 
 Verify:
 
@@ -139,7 +164,8 @@ Verify:
   ephemeral." (the two-part framing from the new
   `privacy-section.tsx`).
 - Load a succeeded job in the dashboard — should show three buttons
-  (`Model .onnx ↓`, `Thresholds ↓`, `Deployment report ↓`).
+  (`Model .onnx ↓`, `Thresholds ↓`, `Deployment report ↓`). Confirmed
+  on iPhone Safari 2026-04-27.
 
 ---
 

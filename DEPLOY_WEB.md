@@ -169,6 +169,8 @@ Returns the production URL. First `vercel` call creates a preview; `--prod` prom
 
 > **`NEXT_PUBLIC_*` env vars are baked into the client JS bundle at build time**, not read at runtime. After changing any `NEXT_PUBLIC_*` value, you **must redeploy** — a simple page reload won't pick up the change.
 
+> **Vercel ↔ GitHub auto-deploy is currently broken** (verified 2026-04-27 — three pushes between 2026-04-22 and 2026-04-27 left production frozen on the 2026-04-21 build). Until the integration is reconnected (Vercel → Project Settings → Git), every production update requires `npx vercel --prod` from `web/` by hand. Always run from `web/`, never from the repo root: a repo-root deploy uploads `models/`, `raw_data/`, `prepared_data/`, etc. and trips the 10 MB tarball limit (`Error: Request body too large. Limit: 10mb`). If you see that error, `rm -rf ../.vercel && rm -rf .vercel && vercel link` from `web/` and re-link.
+
 ### 4.4 Verify
 
 ```bash
@@ -318,7 +320,7 @@ After the resend succeeds, Supabase `payments` has a new row with `status='paid'
 
 ## 9. Post-deploy smoke test
 
-Status as of **2026-04-21** on `https://safecommute-ai.vercel.app`: paid flow is end-to-end green. Resume from the first unchecked item.
+Status as of **2026-04-27** on `https://safecommute-ai.vercel.app`: paid flow is end-to-end green in Stripe **test mode**. Live mode flip lives in [DEPLOYMENT_NEXT_STEPS.md §5](DEPLOYMENT_NEXT_STEPS.md).
 
 - [x] Landing in incognito — animations render, Bauhaus disc follows cursor.
 - [x] "Download demo ↓" → 6.5 MB zip → unzipped contains `safecommute_v2.pth` + `short.md`.
@@ -326,12 +328,12 @@ Status as of **2026-04-21** on `https://safecommute-ai.vercel.app`: paid flow is
 - [x] Enter email → magic link lands in inbox → clicking returns to `/dashboard`.
 - [x] `/dashboard/billing` → "Pay €23 →" → Stripe Checkout → card `4242 4242 4242 4242` any future date any CVC → returns with "Payment received" banner + `1 credit`. *(Required two fixes: §3.2 `prod_` → `price_` for both Stripe price env vars, and §8 `SUPABASE_SERVICE_ROLE_KEY` rotation so the webhook writes weren't dropped.)*
 - [x] Supabase Table Editor shows rows in `payments`, `entitlements`.
-- [ ] New site → drop 3 WAVs → "Run fine-tune" → queued job card appears, credit drops to 0 — card transitions to "running" within 15 s (worker claim), "succeeded" within 10–20 min (CPU fine-tune on the Ryzen box), then shows three download buttons.
-- [ ] Download each of the three artefacts (Model .onnx / Thresholds / Deployment report); load the .onnx in `onnxruntime` and confirm it returns a probability.
-- [ ] Confirm the source clips are wiped from `audio-uploads/<owner>/<site>/` (privacy-fix verified on a real row).
-- [ ] Supabase shows rows in `sites`, `audio_clips`, `finetune_jobs`; files in Storage → `audio-uploads/<uid>/<site-id>/`.
+- [x] New site → drop 3 audio clips → "Run fine-tune" → queued job card appears, credit drops to 0 — card transitions to "running" within 15 s (worker claim), "succeeded" within 10–20 min (CPU fine-tune on the Ryzen box), then shows three download buttons. *(Verified end-to-end 2026-04-22 → 2026-04-27 with iPhone MP4 + WAV + MP3 sources after the 0001 migration was patched to accept `video/mp4|quicktime|webm` MIME types and `safecommute/pipeline/finetune.py` was loosened to accept the same containers via `librosa → ffmpeg`.)*
+- [x] Download each of the three artefacts (Model .onnx / Thresholds / Deployment report); load the .onnx in `onnxruntime` and confirm it returns a probability. *(Verified on iPhone Safari 2026-04-27 after the new `vercel --prod` from `web/` published the route.)*
+- [x] Confirm the source clips are wiped from `audio-uploads/<owner>/<site>/` (privacy-fix verified on a real row).
+- [x] Supabase shows rows in `sites`, `audio_clips`, `finetune_jobs`; files in Storage → `audio-uploads/<uid>/<site-id>/`.
 
-Once the worker is running (§6 + [DEPLOYMENT_NEXT_STEPS.md §2](DEPLOYMENT_NEXT_STEPS.md)) and migration 0002 is applied (step 2b), the full upload → pay → run → download flow works end-to-end on the production stack. [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) is the current owner of that runbook — this doc covers the marketing-site + Supabase + Stripe foundation, the worker doc covers the background-processing half.
+The full upload → pay → run → download flow works end-to-end on the production stack. [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md) owns the operational runbook — this doc covers the marketing-site + Supabase + Stripe foundation, the worker doc ([worker/README.md](worker/README.md)) covers the background-processing half.
 
 ### Env var hygiene (found 2026-04-21)
 

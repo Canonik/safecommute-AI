@@ -66,8 +66,8 @@ export function EdgePositioning() {
               </motion.div>
             ))}
             <div className="border-3 border-bauhaus-yellow bg-bauhaus-yellow text-ink p-4 font-body text-sm">
-              <strong className="font-display uppercase text-base block mb-1">~45× smaller than CNN14/AST</strong>
-              Latency comparison pending. Runs on the hardware you already have at the edge.
+              <strong className="font-display uppercase text-base block mb-1">44.7× smaller, 22.7× faster than CNN14</strong>
+              Measured 2026-04-22 on Ryzen 7 7435HS, 8T. Runs on the hardware you already have at the edge.
             </div>
           </div>
         </div>

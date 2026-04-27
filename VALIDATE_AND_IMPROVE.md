@@ -1,5 +1,7 @@
 # Validate & Improve
 
+> **Status update 2026-04-27 (production live)** — the upload → pay → fine-tune → download flow is live on <https://safecommute-ai.vercel.app> in Stripe test mode. Migration 0002 applied, worker running self-hosted as a systemd unit on the Ryzen 7 7435HS dev box, Vercel production carries the new download route + 3 dashboard buttons + reframed privacy section. End-to-end smoke test passed on iPhone Safari 2026-04-27. Operational state owned by [DEPLOYMENT_NEXT_STEPS.md](DEPLOYMENT_NEXT_STEPS.md). Operational caveat: GitHub → Vercel auto-deploy is broken (three pushes between 2026-04-22 and 2026-04-27 left production frozen), so until the integration is reconnected every redeploy is `cd web && vercel --prod` by hand. What's left for "first real paying customer": Stripe live-mode flip (DEPLOYMENT_NEXT_STEPS.md §5). What's left for workshop submission: ≥ 2 more recorded sites (DEPLOYMENT_NEXT_STEPS.md §7). See §15 below for the closing landing notes.
+>
 > **Status update 2026-04-22 (Phase 1 + 2 + 4 complete)** — §14 at the bottom documents what landed this session. The gap list from 2026-04-21 is now a ✅-mostly document: the two architecture-preserving levers (site-ambient threshold recalibration + temporal-majority aggregation) are implemented and close the FP ≤ 5 % gate on n=1 site (FP 0.0 % / recall 78.9 % on the 19-wav metro eval half — the remaining shortfall is 9 pts of recall, not 30+ pts of FP). γ=3.0 retrain done (AUC 0.791 measured — **material correction** from the 0.856 training-log snapshot; per-source hard-neg breakdown confirms the γ-collapse pattern). PANNs CNN14 SOTA baseline measured on same hardware (44.7× smaller / 22.7× faster @ 8T / 13.9× faster @ 1T). Fine-tune worker + download route + privacy fix + .env.example + systemd unit all landed — paying customer can now complete an upload → pay → download flow (product side was explicitly out of scope on 2026-04-21). Only remaining blocker for a defensible workshop submission: ≥ 2 more sites of field-recorded ambient (user-side only — infra is in place).
 >
 > **Status update 2026-04-21 (initial session end)** — the plan below was executed end-to-end. Sections that got fully done are marked inline; the consolidated status for the 2026-04-21 session lives in §12. The authoritative on-disk numbers now live in [`tests/reports/verify_performance_claims.json`](tests/reports/verify_performance_claims.json) (Phase A + latency), [`tests/reports/phase_b_metro.json`](tests/reports/phase_b_metro.json) (Phase B on n=1 site), and [`tests/reports/tweak_finetune.json`](tests/reports/tweak_finetune.json) (now a 6-attempt tweak sweep — see §14 for tweak 5). When those files disagree with a prose claim in this document, the JSONs win. Full narrative: [`paper.md`](paper.md). Release summary: [`tests/reports/SUMMARY.md`](tests/reports/SUMMARY.md).
@@ -815,3 +817,30 @@ No silent contradictions remain between the verifier and paper.md / README.md / 
 ### Where this document goes next
 
 All sections §5, §6, §7, §10 (partially) are now done. §8 Website-readiness and Phase 3 (marketing-copy hygiene across the `web/` surfaces) are the next chunk — not attempted this session. Per the plan priority ("paper-first, product-second"), those wait until ≥ 2 more sites are recorded.
+
+---
+
+## 15. 2026-04-27 production landing — flow live in Stripe test mode
+
+The 2026-04-22 session shipped all the code; this session put it into
+production and verified the full loop on a real device.
+
+| Layer | What happened on 2026-04-27 |
+|---|---|
+| Migration 0002 deploy | Applied to the production Supabase project; bucket `models-deliverable` and `worker_logs` table verified via SQL editor. Initial paste failed silently (non-standard MIME types in the bucket allow-list); fix was to trim the allow-list to `application/octet-stream` + `application/json` only and re-run the storage-bucket section idempotently. |
+| Worker startup | `safecommute-worker.service` user-systemd unit installed + lingered. Two startup blockers diagnosed in this session: (1) `EnvironmentFile=` does NOT strip inline `# …` comments from `KEY=VALUE` lines — fixed by introducing [worker/env.py](worker/env.py) (defensive `env_int / env_float / env_str` helpers) and rewriting [worker/.env.example](worker/.env.example) to put all comments on their own lines; (2) iPhone clip MP4 uploads bypassed the `audio/*` MIME allow-list and the worker silently exited 0 because [safecommute/pipeline/finetune.py](safecommute/pipeline/finetune.py) only globbed `*.wav` — fixed by extending the bucket allow-list to `video/mp4|quicktime|webm` (patched into [web/supabase/migrations/0001_init.sql](web/supabase/migrations/0001_init.sql) for fresh deploys), loosening the finetune CLI to a tuple of `('.wav', '.mp3', '.m4a', '.flac', '.aac', '.ogg', '.opus', '.mp4', '.mov', '.webm')`, and exiting non-zero when `n_ambient == 0` so the worker now propagates a real cause. |
+| Vercel production deploy | New download route + 3 dashboard buttons + reframed privacy section pushed live via `cd web && vercel --prod`. Repo-root `vercel --prod` was attempted first and tripped the 10 MB tarball limit (uploads `models/`, `raw_data/`, `prepared_data/`, …); fix is documented in [DEPLOYMENT_NEXT_STEPS.md §3](DEPLOYMENT_NEXT_STEPS.md) and [DEPLOY_WEB.md §4.3](DEPLOY_WEB.md). |
+| Vercel ↔ GitHub auto-deploy | **Found broken**: three pushes to `main` between 2026-04-22 and 2026-04-27 produced no Vercel builds (production stayed at the 2026-04-21 deployment until the manual `vercel --prod` ran). Workaround: manual deploy from `web/`. Permanent fix: reconnect GitHub via Vercel → Project Settings → Git. |
+| End-to-end verification | iPhone Safari → upload 3 MP4 voice memos → Stripe test card 4242… → 1 credit → "Run fine-tune" → worker claimed within 15 s → succeeded after ~12 min of CPU fine-tune → 3 download buttons resolved → `.onnx` (3.7 MB), `thresholds.json`, `deployment_report.json` all downloaded → source clips wiped from `audio-uploads/`. Full privacy-fix path verified on a real row. |
+
+### What's still pending (2026-04-27)
+
+- **Stripe live-mode flip** — first real paying customer is gated only on this. Process documented in [DEPLOYMENT_NEXT_STEPS.md §5](DEPLOYMENT_NEXT_STEPS.md).
+- **Marketing-copy hygiene (Phase 3, §10.9)** — the hero still reads "12 ms"; full pass scoped to [DEPLOYMENT_NEXT_STEPS.md §6](DEPLOYMENT_NEXT_STEPS.md).
+- **GitHub → Vercel auto-deploy reconnection** — operational, not architectural.
+- **n=1 → n≥3 sites** — only path to a defensible workshop submission. User-side field-recording is the long-pole.
+- **24/7 worker uptime cost** — running on the Ryzen dev box is free but not portable. Migration to a free-tier or paid VPS deferred until the volume justifies HA; brainstorm paths queued (Oracle Always Free / Cloud Run on-demand refactor / paid VPS).
+
+### Worker resilience follow-up (queued)
+
+Observed once on 2026-04-27: a transient DNS `NameResolutionError` between the worker host and Supabase mid-job — the upload to the `models-deliverable` bucket succeeded but the final `mark_job_succeeded` PATCH failed, leaving a row in `status='running'` even though the artefacts were already on the bucket. Recovery was a manual re-flip of the row. Follow-up: add a small retry budget around the final two `supabase` calls in [worker/job.py](worker/job.py) so transient failures don't strand jobs. Not blocking — the failure mode is rare and the data path is correct.
