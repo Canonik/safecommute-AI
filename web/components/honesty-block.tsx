@@ -97,26 +97,28 @@ export function HonestyBlock() {
                   <span className="line-through decoration-[6px] decoration-ink opacity-60">72%</span>
                 </div>
                 <div className="text-7xl md:text-8xl text-bauhaus-red">
-                  0.0%
+                  16.9%
                 </div>
-                <div className="mt-2 text-base uppercase tracking-tight">FP on held-out site ambient</div>
+                <div className="mt-2 text-base uppercase tracking-tight">Speech FP after fine-tune</div>
               </div>
               <div className="mt-4 font-body text-sm">
-                Best honest operating point: tweak 3 + temporal-majority aggregation at k=2 clears the
-                ≤5% deployment FP gate on 19 held-out metro wavs. Recall trades from 89.5% to 78.9%.
-                Universal speech subset FP drops from 72% to 16.9%. n=1 site; ≥2 more are field-recording
-                work. Full breakdown in the paper.
+                Tweak 3 + temporal-majority aggregation (k=2) drops universal speech-subset FP from
+                72% to 16.9% — apples-to-apples on the same <code>as_speech</code> clips. On
+                held-out metro ambient (19 wavs, never seen in fine-tune), the same operating point
+                clears the ≤5% deployment FP gate at <strong>0.0% FP</strong> with 78.9% recall (down
+                from 89.5% pre-lever). n=1 site; ≥2 more are field-recording work. Full breakdown in
+                the paper.
               </div>
 
               {/* Shrinking bar */}
               <div className="mt-6">
                 <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest mb-1">
-                  <span>Held-out site FP</span>
+                  <span>Speech FP</span>
                 </div>
                 <div className="relative h-7 border-3 border-ink bg-paper overflow-hidden">
                   <motion.div
                     initial={{ width: "72%" }}
-                    animate={inView ? { width: "1%" } : { width: "72%" }}
+                    animate={inView ? { width: "17%" } : { width: "72%" }}
                     transition={{ duration: 1.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                     className="absolute inset-y-0 left-0 bg-bauhaus-red"
                   />
