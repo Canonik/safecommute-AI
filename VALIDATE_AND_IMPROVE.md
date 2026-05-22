@@ -72,7 +72,7 @@ This is critical and easy to misread. The repo makes **three different kinds** o
 - Base-model **41% safe→unsafe leakage driven by speech** ([update.md:114](update.md#L114)) — *my measurement shows 34.2% overall FPR, so this one needs either validation or correction before the paper*
 - Gamma ablation: **γ=3.0 → AUC 0.856 but 0% hard-negative accuracy; γ=0.5 + noise → AUC 0.804** ([paper.md:32](paper.md#L32), [update.md:102](update.md#L102))
 - SOTA footprint comparison: **~50× smaller, ~10× faster than CNN14/AST** ([paper.md:35](paper.md#L35), [docs/gamma_prompt.md:82](docs/gamma_prompt.md#L82))
-- CPU latency **~12 ms** on Ryzen 5, 1 thread ([short.md:44](web/public/demo/short.md#L44), [README.md:20](README.md#L20), [RESULTS.md:12](RESULTS.md#L12))
+- CPU latency **~12 ms** on Ryzen 5, 1 thread ([short.md:44](demo/short.md#L44), [README.md:20](README.md#L20), [RESULTS.md:12](RESULTS.md#L12))
 
 **The 5% FP claim is a (B)-class deployment claim, not an (A)-class universal claim.** It is achievable only when:
 1. The model has been fine-tuned on ≥30 min of that site's ambient (per the now-deleted `DEPLOY.md` — the requirement now lives only implicitly in [finetune.py](safecommute/pipeline/finetune.py); this doc should restate it publicly).
@@ -94,7 +94,7 @@ The same numbers appear across multiple files, which means a change to the model
 | [safecommute/pipeline/test_deployment.py](safecommute/pipeline/test_deployment.py) | Deployment gate: TPR ≥ 90%, FP ≤ 5%, latency ≤ 15 ms / p99 ≤ 30 ms, size ≤ 10 MB / ≤ 6 MB |
 | [safecommute/export.py:23](safecommute/export.py#L23) | Export target: latency < 15 ms |
 | **[scripts/generate_pitch_figures.py](scripts/generate_pitch_figures.py)** | **Hardcoded confusion matrix `[[0.59, 0.41], [0.18, 0.82]]` (line 267-268), subtitle "AUC 0.80 - acc 70% - that 41% slip is the speech problem" (line 303), per-source accuracy array literals (lines 147-154), SOTA comparison (lines 85-88: YAMNet 3.7M/50ms/0.306, CNN14 80M/150ms/0.431, AST 86M/200ms/0.485).** This is where the 41% comes from — it is a manual entry in a plot script, not a measurement. |
-| [web/public/demo/short.md](web/public/demo/short.md) | "~12 ms on a single CPU core, Ryzen 5, 2024"; 72% base speech-FP; ~86% post-fine-tune recall |
+| [demo/short.md](demo/short.md) | "~12 ms on a single CPU core, Ryzen 5, 2024"; 72% base speech-FP; ~86% post-fine-tune recall |
 | [web/components/edge-positioning.tsx](web/components/edge-positioning.tsx) | "~12 ms CPU latency"; "RPi 4+ ARM-ready" |
 | [web/components/hero.tsx](web/components/hero.tsx) | "7 MB"; "12 ms"; "no cloud" |
 | [web/components/how-it-works.tsx](web/components/how-it-works.tsx) | "1.83 M params, 7 MB float32, ~12 ms CPU" (step 03); "Speech FP 72% → <5%" (step 04) |
@@ -131,7 +131,7 @@ The same numbers appear across multiple files, which means a change to the model
 
 ## 4. What's broken or weak on the release path
 
-- **Demo zip ships `safecommute_v2.pth`** ([safecommute-v2-demo.zip](web/public/demo/safecommute-v2-demo.zip)) — users need full PyTorch to run it.
+- **Demo zip ships `safecommute_v2.pth`** ([safecommute-v2-demo.zip](demo/safecommute-v2-demo.zip)) — users need full PyTorch to run it.
 - **ONNX export produces a 100 KB skeleton** with weights stored as external data (PyTorch 2.11 dynamo default). The file alone does not load on another machine.
 - **INT8 dynamic quantization is a regression** — [safecommute/export.py:82-98](safecommute/export.py#L82-L98) only quantizes Linear + GRU. The 3 CNN blocks dominate compute; INT8 runs 20% *slower* than FP32 in the repo's own benchmark.
 - **Per-source FPR table in [RESULTS.md:25-31](RESULTS.md#L25-L31) lists 4 of 16 safe sources.** Laughter (82% FPR) is the top false-alarm and is omitted. Post-fine-tune-focused story needs the full table.
@@ -320,7 +320,7 @@ The script has three phases, mirroring the three claim kinds:
 | 11 | FPR as_crowd = 0.579 | ±0.04 | [RESULTS.md:29](RESULTS.md#L29) |
 | 12 | FPR as_speech = 0.717 | ±0.04 | [RESULTS.md:30](RESULTS.md#L30) |
 | 13 | FPR as_laughter = 0.825 | ±0.04 | [RESULTS.md:31](RESULTS.md#L31) |
-| 14 | Base speech-FP headline ≈ 72% | 0.60–0.85 band | [RESULTS.md:35](RESULTS.md#L35), [short.md:98](web/public/demo/short.md#L98), [update.md:160](update.md#L160), [selling.md:5](selling.md#L5) |
+| 14 | Base speech-FP headline ≈ 72% | 0.60–0.85 band | [RESULTS.md:35](RESULTS.md#L35), [short.md:98](demo/short.md#L98), [update.md:160](update.md#L160), [selling.md:5](selling.md#L5) |
 | 15 | Base micro threat recall ≈ 82% | ±0.03 | [update.md:114](update.md#L114) |
 | 16 | Base overall FPR (matches the 41% leakage claim under its documented configuration) | once the configuration is documented | [update.md:114](update.md#L114) |
 
@@ -357,7 +357,7 @@ These are the load-bearing numbers on the homepage, pitch deck, and paper intro.
 | # | Claim | Check | Source |
 |---|---|---|---|
 | 25 | FP32 CPU mean latency ≤ 15 ms, p99 ≤ 30 ms (deployment gate) | **hard** when `TARGET_HW` env var names the claim's hardware; **soft** otherwise (print measured and hardware id, mark N/A vs spec) | [test_deployment.py:18-19](safecommute/pipeline/test_deployment.py#L18-L19), [safecommute/export.py:23](safecommute/export.py#L23) |
-| 26 | **~12 ms** on Ryzen 5, 1 core (marketing) | soft, same pattern | [short.md:44](web/public/demo/short.md#L44), [README.md:20](README.md#L20), [CLAUDE.md](CLAUDE.md) |
+| 26 | **~12 ms** on Ryzen 5, 1 core (marketing) | soft, same pattern | [short.md:44](demo/short.md#L44), [README.md:20](README.md#L20), [CLAUDE.md](CLAUDE.md) |
 | 27 | INT8 ONNX mean latency ≤ 15 ms | soft, same pattern | once 5.2 lands |
 | 28 | INT8 AUC degradation ≤ 0.02 vs FP32 | **hard** | once 5.2 lands |
 | 29 | Model size: FP32 ≤ 10 MB, INT8 ≤ 6 MB | **hard** | [test_deployment.py:21](safecommute/pipeline/test_deployment.py#L21) |
@@ -610,7 +610,7 @@ Soften the copy first (the cheap honest thing), then implement (a) when there is
 
 ### 10.4 Ship a minimal SDK + integration guide
 
-**Why**: customers who download the demo `.pth` (or a fine-tuned artefact) have nowhere to go from "I have the file" to "it runs in my product". `web/public/demo/short.md` is a quickstart, not a deployment guide.
+**Why**: customers who download the demo `.pth` (or a fine-tuned artefact) have nowhere to go from "I have the file" to "it runs in my product". `demo/short.md` is a quickstart, not a deployment guide.
 
 **How**: a thin `safecommute-sdk` Python package with three responsibilities:
 - load `.pth` or `.onnx` + `thresholds.json`,
@@ -794,7 +794,7 @@ Verification done autonomously: `tsc --noEmit` exit 0 on the full `web/` tree af
 
 ### §10 items still open (not blockers for a first paying customer, but for enterprise sales)
 
-- §10.4 SDK + integration guide — not built. Customers download `model.onnx` + `thresholds.json` + `deployment_report.json` and follow the demo bundle (`web/public/demo/`) for now.
+- §10.4 SDK + integration guide — not built. Customers download `model.onnx` + `thresholds.json` + `deployment_report.json` and follow the demo bundle (`demo/`) for now.
 - §10.5 Stripe Customer Portal — not wired (rename deferred since it's pure copy).
 - §10.6 Compliance docs (DPA, security, retention) — not written.
 - §10.7 Rate limits — not wired (`WORKER_CONCURRENCY=1` and the `--majority-k` recipe are the current backpressure).

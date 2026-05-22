@@ -457,7 +457,7 @@ Audit finding: *"No audio ever leaves the device"* is true for inference but fal
 - **Fix**: "Speech FP 72%. Drops substantially after site calibration (current measurement: 15% on universal speech subset after metro fine-tune; target ≤ 5% pending threshold + aggregation fixes — see [paper.md](paper.md) §4.5)."
 - Or: remove the `→ <5%` claim entirely; replace with a pointer to the live figure.
 
-### [web/public/demo/short.md](web/public/demo/short.md) — already updated in this session
+### [demo/short.md](demo/short.md) — already updated in this session
 
 No further action needed (measured numbers + Limitations present).
 
