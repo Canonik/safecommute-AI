@@ -112,17 +112,11 @@ Out of the box on raw ambient audio (measured 2026-04-21, `tests/reports/verify_
 - Training-side only (k=1, max-window aggregation): FP **38.2 %** / recall 89.5 % at the default threshold — the honest "pre-lever" number.
 - Training-side best tweak + **temporal-majority aggregation (k=2)**: FP **0.0 %** (0 / 19 held-out eval wavs) / recall **78.9 %** (45 / 57 screams). The FP ≤ 5 % target is met; the ≥ 88 % recall target is 9 pts short.
 
-See `tests/reports/metro_lever_sweep.json` for the full 4 checkpoints × 3 k values × 2 threshold-choice matrix, and `paper.md` §1.4 tweak 5 for the trade curve. One site is not n=3 — additional site recordings are the remaining paper-side gap, with the per-site workflow documented in `DEPLOYMENT_NEXT_STEPS.md` §7.
+See `tests/reports/metro_lever_sweep.json` for the full 4 checkpoints × 3 k values × 2 threshold-choice matrix, and `paper.md` §1.4 tweak 5 for the trade curve. One site is not n=3; additional site recordings are the remaining paper-side gap.
 
 ## Fine-tuning
 
-The paid dashboard lets you:
-
-1. Upload 30+ minutes of ambient recordings from your site.
-2. Trigger a fine-tune job (CNN frozen, only the GRU + FC head are adapted).
-3. Download the calibrated `{site}_model.pth` and matching `{site}_thresholds.json`.
-
-Command-line equivalent (requires the full repo):
+Per-site fine-tuning is run locally from the repo. Record 30+ minutes of ambient audio from the target environment, then:
 
 ```bash
 PYTHONPATH=. python safecommute/pipeline/finetune.py \
@@ -131,11 +125,12 @@ PYTHONPATH=. python safecommute/pipeline/finetune.py \
   --freeze-cnn
 ```
 
+The CNN stays frozen; only the GRU and FC head are adapted. Output: a calibrated `{site}_model.pth` and matching `{site}_thresholds.json`.
+
 ## Links
 
 - Repository: <https://github.com/Canonik/safecommute-AI>
-- Full docs: `README.md`, `paper.md`, `DEPLOY_WEB.md`, `DEPLOYMENT_NEXT_STEPS.md` in the repo
-- Fine-tuning dashboard: open the landing page → "Open dashboard"
+- Full docs in the repo: `README.md`, `paper.md`, `RESULTS.md`, `VALIDATE_AND_IMPROVE.md`
 
 ## License & attribution
 
