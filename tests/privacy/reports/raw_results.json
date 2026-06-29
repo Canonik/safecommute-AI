@@ -1,0 +1,866 @@
+{
+  "corpus": "librispeech_devclean_3s",
+  "n_clips": 200,
+  "sample_rate": 16000,
+  "wer_reference": "whisper_tiny_en_on_originals",
+  "configurations": [
+    {
+      "recovery": "pcen_oracle",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.1009149877899878,
+          "ci95_lo": 0.0812566117909868,
+          "ci95_hi": 0.12191854326229326
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.8408856964111329,
+          "ci95_lo": 0.8345605721101165,
+          "ci95_hi": 0.8470142684206367
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.8390050268173217,
+          "ci95_lo": 1.792206037029624,
+          "ci95_hi": 1.8863537523895502
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.8988679947063315,
+          "ci95_lo": 0.8952573494799093,
+          "ci95_hi": 0.90248500143285
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, studied to the affair",
+          "wer": 0.2857142857142857,
+          "speaker_cosine": 0.799456000328064,
+          "pesq": 1.7214457988739014,
+          "stoi": 0.8451331394315343,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Breathing deeply, beyond softness.",
+          "wer": 0.5,
+          "speaker_cosine": 0.7734473943710327,
+          "pesq": 1.7627408504486084,
+          "stoi": 0.9347716044115522,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8709612488746643,
+          "pesq": 2.202155828475952,
+          "stoi": 0.933713229510248,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freed his left foot from the star, he threw his",
+          "wer": 0.06666666666666667,
+          "speaker_cosine": 0.8335872292518616,
+          "pesq": 1.9025835990905762,
+          "stoi": 0.9085344738856885,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Sontoreplied that all the trees were full of",
+          "wer": 0.2222222222222222,
+          "speaker_cosine": 0.8754457235336304,
+          "pesq": 2.011460304260254,
+          "stoi": 0.9164984356035062,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8221912980079651,
+          "pesq": 1.3783900737762451,
+          "stoi": 0.9123147615166023,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8028658032417297,
+          "pesq": 2.5717194080352783,
+          "stoi": 0.9398732632417925,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "They stand unmoved in their solitary greatness.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8335779309272766,
+          "pesq": 1.3262947797775269,
+          "stoi": 0.8797107635621085,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The dome of St. Paul's was a delight to Earth's",
+          "wer": 0.1,
+          "speaker_cosine": 0.8063145875930786,
+          "pesq": 1.777559518814087,
+          "stoi": 0.9124409413022051,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "I'd be feeling mean all the mornings if I had stolen",
+          "wer": 0.25,
+          "speaker_cosine": 0.8476541042327881,
+          "pesq": 1.3635252714157104,
+          "stoi": 0.8473776780238826,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__5694-64025-0011.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_oracle",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.26677199189699186,
+          "ci95_lo": 0.22874371184371184,
+          "ci95_hi": 0.30481738539238534
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.5502461029589176,
+          "ci95_lo": 0.5385711497515441,
+          "ci95_hi": 0.5617228660993278
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.580533601641655,
+          "ci95_lo": 1.55107336448133,
+          "ci95_hi": 1.6098066679090262
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.8528812838488841,
+          "ci95_lo": 0.8482366300855342,
+          "ci95_hi": 0.8574497237739612
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, study to the affair.",
+          "wer": 0.5714285714285714,
+          "speaker_cosine": 0.641822099685669,
+          "pesq": 1.359161376953125,
+          "stoi": 0.8262877290708226,
+          "sample_wav": "samples/pcen_oracle__hifigan__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Breathing deeply, bring out a soft case.",
+          "wer": 1.0,
+          "speaker_cosine": 0.5161784887313843,
+          "pesq": 1.7456543445587158,
+          "stoi": 0.8390953257638248,
+          "sample_wav": "samples/pcen_oracle__hifigan__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6303402781486511,
+          "pesq": 1.63568115234375,
+          "stoi": 0.9080028716727545,
+          "sample_wav": "samples/pcen_oracle__hifigan__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freight his left foot from a stirup he threw his",
+          "wer": 0.2,
+          "speaker_cosine": 0.6388850212097168,
+          "pesq": 1.7483621835708618,
+          "stoi": 0.885253814075091,
+          "sample_wav": "samples/pcen_oracle__hifigan__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Something replied that all the trees were full of",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.6166926622390747,
+          "pesq": 1.4378290176391602,
+          "stoi": 0.8486423436684434,
+          "sample_wav": "samples/pcen_oracle__hifigan__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6106206178665161,
+          "pesq": 1.4944863319396973,
+          "stoi": 0.8661904154561337,
+          "sample_wav": "samples/pcen_oracle__hifigan__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5075756311416626,
+          "pesq": 1.5318952798843384,
+          "stoi": 0.8767496298145343,
+          "sample_wav": "samples/pcen_oracle__hifigan__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "This time, unmoved and there are solitary greatness.",
+          "wer": 0.7142857142857143,
+          "speaker_cosine": 0.6251958012580872,
+          "pesq": 1.739959478378296,
+          "stoi": 0.8887689538205932,
+          "sample_wav": "samples/pcen_oracle__hifigan__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The dome of St. Paul's was a delight to Ursus.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5692697763442993,
+          "pesq": 1.7285196781158447,
+          "stoi": 0.8966211323865314,
+          "sample_wav": "samples/pcen_oracle__hifigan__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "By defeating me in all the mornings if I had stolen",
+          "wer": 0.25,
+          "speaker_cosine": 0.528591513633728,
+          "pesq": 1.6669368743896484,
+          "stoi": 0.784911690379247,
+          "sample_wav": "samples/pcen_oracle__hifigan__5694-64025-0011.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_blind",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.14973459873459874,
+          "ci95_lo": 0.12305248397435897,
+          "ci95_hi": 0.17697113997113997
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.7970727297663689,
+          "ci95_lo": 0.7894934783950448,
+          "ci95_hi": 0.8044536826387048
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.7418373101949691,
+          "ci95_lo": 1.7076549186110497,
+          "ci95_hi": 1.777110101774335
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.882866308884229,
+          "ci95_lo": 0.8796445792566371,
+          "ci95_hi": 0.8860216464220374
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, studied the affair.",
+          "wer": 0.2857142857142857,
+          "speaker_cosine": 0.786087155342102,
+          "pesq": 1.7455885410308838,
+          "stoi": 0.8490878605572825,
+          "sample_wav": "samples/pcen_blind__griffin_lim__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Reusing deeply, re-unsoftless.",
+          "wer": 0.75,
+          "speaker_cosine": 0.7043541669845581,
+          "pesq": 1.451582431793213,
+          "stoi": 0.9027278127105745,
+          "sample_wav": "samples/pcen_blind__griffin_lim__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.7636693716049194,
+          "pesq": 2.1885054111480713,
+          "stoi": 0.9146238493145803,
+          "sample_wav": "samples/pcen_blind__griffin_lim__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freed his left foot from the start, he threw his",
+          "wer": 0.0,
+          "speaker_cosine": 0.8226324319839478,
+          "pesq": 1.8518906831741333,
+          "stoi": 0.9039069879275314,
+          "sample_wav": "samples/pcen_blind__griffin_lim__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Sondho replied that all the trees were full of",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.7327319383621216,
+          "pesq": 1.5318303108215332,
+          "stoi": 0.8904296708608639,
+          "sample_wav": "samples/pcen_blind__griffin_lim__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8494787812232971,
+          "pesq": 1.648301601409912,
+          "stoi": 0.9079126610802754,
+          "sample_wav": "samples/pcen_blind__griffin_lim__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6035780906677246,
+          "pesq": 2.268585205078125,
+          "stoi": 0.9044096946535953,
+          "sample_wav": "samples/pcen_blind__griffin_lim__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "They stand unmoved in their solitary greatness.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8022392392158508,
+          "pesq": 1.7926325798034668,
+          "stoi": 0.8808842704970175,
+          "sample_wav": "samples/pcen_blind__griffin_lim__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The Dome of St. Paul's was a delight to Earth's.",
+          "wer": 0.2,
+          "speaker_cosine": 0.8034102320671082,
+          "pesq": 1.7945058345794678,
+          "stoi": 0.9060665717380741,
+          "sample_wav": "samples/pcen_blind__griffin_lim__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "I've been feeding me in all the mornings if I had stolen",
+          "wer": 0.16666666666666666,
+          "speaker_cosine": 0.8417432904243469,
+          "pesq": 1.2835559844970703,
+          "stoi": 0.8309214317228312,
+          "sample_wav": "samples/pcen_blind__griffin_lim__5694-64025-0011.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_blind",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.2060342574092574,
+          "ci95_lo": 0.17467270888833386,
+          "ci95_hi": 0.23813011779886778
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.6314420668780804,
+          "ci95_lo": 0.6208433673530818,
+          "ci95_hi": 0.641794660244137
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.2879127705097198,
+          "ci95_lo": 1.2731023655980827,
+          "ci95_hi": 1.3025736339539289
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.8436848548055544,
+          "ci95_lo": 0.8396983788206901,
+          "ci95_hi": 0.847678176249033
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, studied to the affair.",
+          "wer": 0.42857142857142855,
+          "speaker_cosine": 0.7417435646057129,
+          "pesq": 1.2921706438064575,
+          "stoi": 0.8346837852652977,
+          "sample_wav": "samples/pcen_blind__hifigan__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Breathing deeply, free out of the soft place.",
+          "wer": 1.0,
+          "speaker_cosine": 0.6643848419189453,
+          "pesq": 1.2526612281799316,
+          "stoi": 0.8991276706056441,
+          "sample_wav": "samples/pcen_blind__hifigan__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.66404789686203,
+          "pesq": 1.4997667074203491,
+          "stoi": 0.8726012923375175,
+          "sample_wav": "samples/pcen_blind__hifigan__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freed his left foot from a stirrup, he threw his",
+          "wer": 0.13333333333333333,
+          "speaker_cosine": 0.7110258936882019,
+          "pesq": 1.42527437210083,
+          "stoi": 0.8792444266417598,
+          "sample_wav": "samples/pcen_blind__hifigan__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Saunter replied that all the trees were full of",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.718431293964386,
+          "pesq": 1.329884648323059,
+          "stoi": 0.8345466636630708,
+          "sample_wav": "samples/pcen_blind__hifigan__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6230576038360596,
+          "pesq": 1.2588682174682617,
+          "stoi": 0.8650272194834742,
+          "sample_wav": "samples/pcen_blind__hifigan__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.583840548992157,
+          "pesq": 1.294525384902954,
+          "stoi": 0.8769510004011988,
+          "sample_wav": "samples/pcen_blind__hifigan__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "They stand unmoved in their solitary greatness.",
+          "wer": 0.0,
+          "speaker_cosine": 0.7362405061721802,
+          "pesq": 1.1859568357467651,
+          "stoi": 0.8738848484952684,
+          "sample_wav": "samples/pcen_blind__hifigan__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The dome of St. Paul's was a delight to Earth's.",
+          "wer": 0.1,
+          "speaker_cosine": 0.5851199626922607,
+          "pesq": 1.1993892192840576,
+          "stoi": 0.8351950753266413,
+          "sample_wav": "samples/pcen_blind__hifigan__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "I've been fitting me in all the mornings if I had stolen",
+          "wer": 0.25,
+          "speaker_cosine": 0.6198094487190247,
+          "pesq": 1.2119534015655518,
+          "stoi": 0.8056307119863857,
+          "sample_wav": "samples/pcen_blind__hifigan__5694-64025-0011.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "mel_baseline",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.09102032689532688,
+          "ci95_lo": 0.07209205204517705,
+          "ci95_hi": 0.11180829725829726
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.8384525546431542,
+          "ci95_lo": 0.8317826308980584,
+          "ci95_hi": 0.8448964717462659
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.8473576045036315,
+          "ci95_lo": 1.7992248943895102,
+          "ci95_hi": 1.8965535415410995
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.8992815589225418,
+          "ci95_lo": 0.8956663117223419,
+          "ci95_hi": 0.902891132657224
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, studied to the afheric",
+          "wer": 0.42857142857142855,
+          "speaker_cosine": 0.7795615196228027,
+          "pesq": 1.5496768951416016,
+          "stoi": 0.8472427781146025,
+          "sample_wav": "samples/mel_baseline__griffin_lim__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Breathing deeply, beyond softness.",
+          "wer": 0.5,
+          "speaker_cosine": 0.8059276342391968,
+          "pesq": 1.5693378448486328,
+          "stoi": 0.9374943000699999,
+          "sample_wav": "samples/mel_baseline__griffin_lim__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8381102681159973,
+          "pesq": 2.2995946407318115,
+          "stoi": 0.9359955630710427,
+          "sample_wav": "samples/mel_baseline__griffin_lim__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freed his left foot from the star, he threw his",
+          "wer": 0.06666666666666667,
+          "speaker_cosine": 0.8404749631881714,
+          "pesq": 1.9245057106018066,
+          "stoi": 0.9072830411431612,
+          "sample_wav": "samples/mel_baseline__griffin_lim__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Sontoreplied that all the trees were full of",
+          "wer": 0.2222222222222222,
+          "speaker_cosine": 0.8787364363670349,
+          "pesq": 1.9458385705947876,
+          "stoi": 0.9122360903008642,
+          "sample_wav": "samples/mel_baseline__griffin_lim__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things",
+          "wer": 0.08333333333333333,
+          "speaker_cosine": 0.8560347557067871,
+          "pesq": 1.3962657451629639,
+          "stoi": 0.9051944972901144,
+          "sample_wav": "samples/mel_baseline__griffin_lim__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.7937423586845398,
+          "pesq": 2.2938241958618164,
+          "stoi": 0.9272882143397718,
+          "sample_wav": "samples/mel_baseline__griffin_lim__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "They stand unmoved in their solitary greatness.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8393368721008301,
+          "pesq": 1.4619050025939941,
+          "stoi": 0.8766568042571098,
+          "sample_wav": "samples/mel_baseline__griffin_lim__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The dome of St. Paul's was a delight to Earth's",
+          "wer": 0.1,
+          "speaker_cosine": 0.8226743340492249,
+          "pesq": 1.7921757698059082,
+          "stoi": 0.9090767825966432,
+          "sample_wav": "samples/mel_baseline__griffin_lim__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "I've been feeling mean all the mornings if I had stolen",
+          "wer": 0.4166666666666667,
+          "speaker_cosine": 0.8488516807556152,
+          "pesq": 1.425747275352478,
+          "stoi": 0.8614177447564588,
+          "sample_wav": "samples/mel_baseline__griffin_lim__5694-64025-0011.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "mel_baseline",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 200,
+          "mean": 0.26677199189699186,
+          "ci95_lo": 0.22874371184371184,
+          "ci95_hi": 0.30481738539238534
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 200,
+          "mean": 0.5502460999786853,
+          "ci95_lo": 0.5385711154416203,
+          "ci95_hi": 0.5617228799313307
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 200,
+          "mean": 0.11396009558578953,
+          "ci95_lo": 0.09507247060758527,
+          "ci95_hi": 0.13453186732827452
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 200,
+          "mean": 1.5805331408977508,
+          "ci95_lo": 1.551072337910533,
+          "ci95_hi": 1.6098058767616747
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 200,
+          "mean": 0.8528812741135933,
+          "ci95_lo": 0.848236625740837,
+          "ci95_hi": 0.857449712786685
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "3081-166546-0046",
+          "reference": "been over the ground, studied the affair",
+          "hypothesis": "Then over the ground, study to the affair.",
+          "wer": 0.5714285714285714,
+          "speaker_cosine": 0.641822338104248,
+          "pesq": 1.3591625690460205,
+          "stoi": 0.8262877171370733,
+          "sample_wav": "samples/mel_baseline__hifigan__3081-166546-0046.wav"
+        },
+        {
+          "clip_id": "1272-141231-0026",
+          "reference": "Breathing deeply, Breonna's softly",
+          "hypothesis": "Breathing deeply, bring out a soft case.",
+          "wer": 1.0,
+          "speaker_cosine": 0.5161789655685425,
+          "pesq": 1.7456576824188232,
+          "stoi": 0.8390952926603394,
+          "sample_wav": "samples/mel_baseline__hifigan__1272-141231-0026.wav"
+        },
+        {
+          "clip_id": "174-168635-0009",
+          "reference": "To meet was to find each other.",
+          "hypothesis": "To meet was to find each other.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6303399801254272,
+          "pesq": 1.6356923580169678,
+          "stoi": 0.9080028498810848,
+          "sample_wav": "samples/mel_baseline__hifigan__174-168635-0009.wav"
+        },
+        {
+          "clip_id": "6313-66129-0034",
+          "reference": "If the moment when he freed his left foot from the start, he threw his",
+          "hypothesis": "If the moment when he freight his left foot from a stirup he threw his",
+          "wer": 0.2,
+          "speaker_cosine": 0.6388848423957825,
+          "pesq": 1.74836266040802,
+          "stoi": 0.8852538136428467,
+          "sample_wav": "samples/mel_baseline__hifigan__6313-66129-0034.wav"
+        },
+        {
+          "clip_id": "3576-138058-0013",
+          "reference": "Sancho replied that all the trees were full of",
+          "hypothesis": "Something replied that all the trees were full of",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.616690993309021,
+          "pesq": 1.437835931777954,
+          "stoi": 0.8486423475917648,
+          "sample_wav": "samples/mel_baseline__hifigan__3576-138058-0013.wav"
+        },
+        {
+          "clip_id": "7850-281318-0013",
+          "reference": "She began to show them how to weave the bits of things.",
+          "hypothesis": "She began to show them how to weave the bits of things.",
+          "wer": 0.0,
+          "speaker_cosine": 0.6106204390525818,
+          "pesq": 1.4944875240325928,
+          "stoi": 0.8661902969576862,
+          "sample_wav": "samples/mel_baseline__hifigan__7850-281318-0013.wav"
+        },
+        {
+          "clip_id": "8297-275154-0012",
+          "reference": "Randall, he said.",
+          "hypothesis": "Randall, he said.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5075750946998596,
+          "pesq": 1.5318928956985474,
+          "stoi": 0.8767494995927289,
+          "sample_wav": "samples/mel_baseline__hifigan__8297-275154-0012.wav"
+        },
+        {
+          "clip_id": "1988-148538-0013",
+          "reference": "They stand unmoved in their solitary greatness.",
+          "hypothesis": "This time, unmoved and there are solitary greatness.",
+          "wer": 0.7142857142857143,
+          "speaker_cosine": 0.6251955032348633,
+          "pesq": 1.7399592399597168,
+          "stoi": 0.8887691271420745,
+          "sample_wav": "samples/mel_baseline__hifigan__1988-148538-0013.wav"
+        },
+        {
+          "clip_id": "5895-34629-0001",
+          "reference": "The dome of St. Paul's was a delight to Ursus.",
+          "hypothesis": "The dome of St. Paul's was a delight to Ursus.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5692697167396545,
+          "pesq": 1.728520154953003,
+          "stoi": 0.896621147269189,
+          "sample_wav": "samples/mel_baseline__hifigan__5895-34629-0001.wav"
+        },
+        {
+          "clip_id": "5694-64025-0011",
+          "reference": "I'd be feeding me in all the mornings if I had stolen",
+          "hypothesis": "By defeating me in all the mornings if I had stolen",
+          "wer": 0.25,
+          "speaker_cosine": 0.5285915732383728,
+          "pesq": 1.6669143438339233,
+          "stoi": 0.7849116391385546,
+          "sample_wav": "samples/mel_baseline__hifigan__5694-64025-0011.wav"
+        }
+      ]
+    }
+  ]
+}

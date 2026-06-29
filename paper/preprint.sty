@@ -1,0 +1,16 @@
+\ProvidesPackage{preprint}[2026/06/29 Minimal preprint style]
+
+\RequirePackage[margin=0.75in]{geometry}
+\RequirePackage{abstract}
+\RequirePackage{titlesec}
+\RequirePackage{titling}
+
+\setlength{\columnsep}{0.25in}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0pt}
+\renewcommand{\abstractnamefont}{\normalfont\bfseries}
+\renewcommand{\abstracttextfont}{\normalfont\small}
+\setlength{\droptitle}{-2em}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\providecommand{\keywords}[1]{\par\vspace{0.5em}\noindent\textbf{Keywords: }#1\par}

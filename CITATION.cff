@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this reproducibility code, please cite this repository and the accompanying paper."
+title: "Reconstruction Attacks on PCEN Spectrograms"
+authors:
+  - family-names: Canonico
+    given-names: Alessandro
+date-released: 2026-06-29
+license: Apache-2.0
+repository-code: "https://github.com/alessandrocanonico/safecommute-AI"
+abstract: "Reproducibility code for a negative-result audit showing that PCEN spectrograms preserve enough information for intelligible speech and speaker-identifying waveform reconstruction."

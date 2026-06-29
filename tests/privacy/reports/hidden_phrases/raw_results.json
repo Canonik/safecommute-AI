@@ -1,0 +1,566 @@
+{
+  "corpus": "hidden_phrases",
+  "n_clips": 5,
+  "sample_rate": 16000,
+  "wer_reference": "whisper_tiny_en_on_originals",
+  "configurations": [
+    {
+      "recovery": "pcen_oracle",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.20055555555555554,
+          "ci95_lo": 0.05833333333333333,
+          "ci95_hi": 0.41
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.8361991882324219,
+          "ci95_lo": 0.8155919909477234,
+          "ci95_hi": 0.8606669068336487
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.7223825454711914,
+          "ci95_lo": 1.6267962217330934,
+          "ci95_hi": 1.8507261276245117
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.9081537458819502,
+          "ci95_lo": 0.9035262198303068,
+          "ci95_hi": 0.9124548480068878
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The password is 4 to P.N.",
+          "wer": 0.16666666666666666,
+          "speaker_cosine": 0.8762403726577759,
+          "pesq": 1.6343241930007935,
+          "stoi": 0.9136445294840135,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.800472617149353,
+          "pesq": 1.7408545017242432,
+          "stoi": 0.9031186460698258,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "This safe combination is 4716.",
+          "wer": 0.6,
+          "speaker_cosine": 0.8296695351600647,
+          "pesq": 1.682855248451233,
+          "stoi": 0.9118628336783018,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "France for 2000 years to account number 19.",
+          "wer": 0.125,
+          "speaker_cosine": 0.8277408480644226,
+          "pesq": 1.5912387371063232,
+          "stoi": 0.900883206467802,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "The axis code for the vault is AlphaTango Brewe.",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.8468725681304932,
+          "pesq": 1.9626400470733643,
+          "stoi": 0.911259513709808,
+          "sample_wav": "samples/pcen_oracle__griffin_lim__probe-04.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_oracle",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.3022222222222222,
+          "ci95_lo": 0.1222222222222222,
+          "ci95_hi": 0.45777777777777773
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.5810357451438903,
+          "ci95_lo": 0.5669175744056701,
+          "ci95_hi": 0.5951539158821106
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.6312163114547729,
+          "ci95_lo": 1.5470064878463745,
+          "ci95_hi": 1.7019270420074464
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.8922508078778122,
+          "ci95_lo": 0.8840010513506884,
+          "ci95_hi": 0.9002550488413327
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The Peniswork is 4 to PM.",
+          "wer": 0.16666666666666666,
+          "speaker_cosine": 0.5778842568397522,
+          "pesq": 1.478505253791809,
+          "stoi": 0.8819230903788461,
+          "sample_wav": "samples/pcen_oracle__hifigan__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5733987092971802,
+          "pesq": 1.592427134513855,
+          "stoi": 0.8966682814144169,
+          "sample_wav": "samples/pcen_oracle__hifigan__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "safe combination is 4716.",
+          "wer": 0.4,
+          "speaker_cosine": 0.5950745344161987,
+          "pesq": 1.7070895433425903,
+          "stoi": 0.9052988736205515,
+          "sample_wav": "samples/pcen_oracle__hifigan__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "for 2,000 viewers to account number 90.",
+          "wer": 0.5,
+          "speaker_cosine": 0.5549530982971191,
+          "pesq": 1.7173964977264404,
+          "stoi": 0.8970046077755716,
+          "sample_wav": "samples/pcen_oracle__hifigan__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "the axis code for the vault is alpha tangle rather.",
+          "wer": 0.4444444444444444,
+          "speaker_cosine": 0.6038681268692017,
+          "pesq": 1.66066312789917,
+          "stoi": 0.8803591861996748,
+          "sample_wav": "samples/pcen_oracle__hifigan__probe-04.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_blind",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.09722222222222222,
+          "ci95_lo": 0.0,
+          "ci95_hi": 0.24722222222222223
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.803083848953247,
+          "ci95_lo": 0.7720232367515564,
+          "ci95_hi": 0.8339637398719788
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.8015691757202148,
+          "ci95_lo": 1.564080047607422,
+          "ci95_hi": 2.046256685256958
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.898531099231883,
+          "ci95_lo": 0.8802879676538163,
+          "ci95_hi": 0.910774960797967
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The password is 4 to PM.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8514500856399536,
+          "pesq": 2.0675787925720215,
+          "stoi": 0.9153477000070882,
+          "sample_wav": "samples/pcen_blind__griffin_lim__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.748215913772583,
+          "pesq": 1.5255528688430786,
+          "stoi": 0.9020013371908773,
+          "sample_wav": "samples/pcen_blind__griffin_lim__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "safe combination is 47 16.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8002848029136658,
+          "pesq": 1.754180669784546,
+          "stoi": 0.9096317759956868,
+          "sample_wav": "samples/pcen_blind__griffin_lim__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "for 2,000 years to account number 19.",
+          "wer": 0.375,
+          "speaker_cosine": 0.7859588265419006,
+          "pesq": 1.4895609617233276,
+          "stoi": 0.8632689083608391,
+          "sample_wav": "samples/pcen_blind__griffin_lim__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "The axis code for the vault is AlphaTango Brev.",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.8295096158981323,
+          "pesq": 2.1709725856781006,
+          "stoi": 0.9024057746049235,
+          "sample_wav": "samples/pcen_blind__griffin_lim__probe-04.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "pcen_blind",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.2772222222222222,
+          "ci95_lo": 0.11333333333333333,
+          "ci95_hi": 0.4127777777777778
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.566545045375824,
+          "ci95_lo": 0.5343474745750427,
+          "ci95_hi": 0.610868239402771
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.2276743173599243,
+          "ci95_lo": 1.1689449071884155,
+          "ci95_hi": 1.2849223613739014
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.8512156774557896,
+          "ci95_lo": 0.8258561168575473,
+          "ci95_hi": 0.8761343116212167
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The password is for to PM.",
+          "wer": 0.16666666666666666,
+          "speaker_cosine": 0.6491508483886719,
+          "pesq": 1.1703203916549683,
+          "stoi": 0.8871432179490444,
+          "sample_wav": "samples/pcen_blind__hifigan__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5418857336044312,
+          "pesq": 1.3104348182678223,
+          "stoi": 0.8684741850254992,
+          "sample_wav": "samples/pcen_blind__hifigan__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "safe combination is 4716.",
+          "wer": 0.4,
+          "speaker_cosine": 0.5183659195899963,
+          "pesq": 1.2781953811645508,
+          "stoi": 0.8689554685912476,
+          "sample_wav": "samples/pcen_blind__hifigan__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "for 2,000 years to account number 19.",
+          "wer": 0.375,
+          "speaker_cosine": 0.5583198070526123,
+          "pesq": 1.1320695877075195,
+          "stoi": 0.8170957157214906,
+          "sample_wav": "samples/pcen_blind__hifigan__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "the access code for the vault is AlphaTangle Grub.",
+          "wer": 0.4444444444444444,
+          "speaker_cosine": 0.5650029182434082,
+          "pesq": 1.2473514080047607,
+          "stoi": 0.8144097999916661,
+          "sample_wav": "samples/pcen_blind__hifigan__probe-04.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "mel_baseline",
+      "attack": "griffin_lim",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.17722222222222223,
+          "ci95_lo": 0.02222222222222222,
+          "ci95_hi": 0.3322222222222222
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.8299683213233948,
+          "ci95_lo": 0.8002820253372193,
+          "ci95_hi": 0.8605691909790039
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.7260740995407104,
+          "ci95_lo": 1.627769899368286,
+          "ci95_hi": 1.852648663520813
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.9070556128590999,
+          "ci95_lo": 0.8991076768180678,
+          "ci95_hi": 0.915003548900132
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The password is 4 to PM.",
+          "wer": 0.0,
+          "speaker_cosine": 0.8795977830886841,
+          "pesq": 1.6646877527236938,
+          "stoi": 0.9097515226406344,
+          "sample_wav": "samples/mel_baseline__griffin_lim__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.7889008522033691,
+          "pesq": 1.742579460144043,
+          "stoi": 0.898637327626341,
+          "sample_wav": "samples/mel_baseline__griffin_lim__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "safe combination is 4716.",
+          "wer": 0.4,
+          "speaker_cosine": 0.8433105945587158,
+          "pesq": 1.7085318565368652,
+          "stoi": 0.9127795778152412,
+          "sample_wav": "samples/mel_baseline__griffin_lim__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "for 2,000 years to account number 19.",
+          "wer": 0.375,
+          "speaker_cosine": 0.790148913860321,
+          "pesq": 1.5625793933868408,
+          "stoi": 0.8942561030985112,
+          "sample_wav": "samples/mel_baseline__griffin_lim__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "The axis code for the vault is AlphaTango Brev.",
+          "wer": 0.1111111111111111,
+          "speaker_cosine": 0.8478834629058838,
+          "pesq": 1.9519920349121094,
+          "stoi": 0.9198535331147715,
+          "sample_wav": "samples/mel_baseline__griffin_lim__probe-04.wav"
+        }
+      ]
+    },
+    {
+      "recovery": "mel_baseline",
+      "attack": "hifigan",
+      "metrics": {
+        "wer": {
+          "metric": "wer",
+          "n": 5,
+          "mean": 0.3022222222222222,
+          "ci95_lo": 0.1222222222222222,
+          "ci95_hi": 0.45777777777777773
+        },
+        "speaker_cosine": {
+          "metric": "speaker_cosine",
+          "n": 5,
+          "mean": 0.581035602092743,
+          "ci95_lo": 0.5669174194335938,
+          "ci95_hi": 0.5951537847518921
+        },
+        "speaker_cosine_chance": {
+          "metric": "speaker_cosine_chance",
+          "n": 5,
+          "mean": 0.7465474963188171,
+          "ci95_lo": 0.6950881958007813,
+          "ci95_hi": 0.798006796836853
+        },
+        "pesq": {
+          "metric": "pesq",
+          "n": 5,
+          "mean": 1.6312200546264648,
+          "ci95_lo": 1.547008228302002,
+          "ci95_hi": 1.7019316673278808
+        },
+        "stoi": {
+          "metric": "stoi",
+          "n": 5,
+          "mean": 0.8922508269466395,
+          "ci95_lo": 0.884001045786494,
+          "ci95_hi": 0.9002550855957171
+        }
+      },
+      "examples": [
+        {
+          "clip_id": "probe-00",
+          "reference": "The password is 4 to PM.",
+          "hypothesis": "The Peniswork is 4 to PM.",
+          "wer": 0.16666666666666666,
+          "speaker_cosine": 0.5778838396072388,
+          "pesq": 1.4785048961639404,
+          "stoi": 0.881923096311994,
+          "sample_wav": "samples/mel_baseline__hifigan__probe-00.wav"
+        },
+        {
+          "clip_id": "probe-01",
+          "reference": "credit card number is 1-2-3-4-5-6.",
+          "hypothesis": "credit card number is 1-2-3-4-5-6.",
+          "wer": 0.0,
+          "speaker_cosine": 0.5733985304832458,
+          "pesq": 1.5924320220947266,
+          "stoi": 0.8966683042342496,
+          "sample_wav": "samples/mel_baseline__hifigan__probe-01.wav"
+        },
+        {
+          "clip_id": "probe-02",
+          "reference": "safe combination is 47 16.",
+          "hypothesis": "safe combination is 4716.",
+          "wer": 0.4,
+          "speaker_cosine": 0.5950747728347778,
+          "pesq": 1.707094430923462,
+          "stoi": 0.9052989461960498,
+          "sample_wav": "samples/mel_baseline__hifigan__probe-02.wav"
+        },
+        {
+          "clip_id": "probe-03",
+          "reference": "France for 2000 Euros to account number 19.",
+          "hypothesis": "for 2,000 viewers to account number 90.",
+          "wer": 0.5,
+          "speaker_cosine": 0.5549530982971191,
+          "pesq": 1.7174005508422852,
+          "stoi": 0.897004615676118,
+          "sample_wav": "samples/mel_baseline__hifigan__probe-03.wav"
+        },
+        {
+          "clip_id": "probe-04",
+          "reference": "The axis code for the vault is AlphaTango Breve.",
+          "hypothesis": "the axis code for the vault is alpha tangle rather.",
+          "wer": 0.4444444444444444,
+          "speaker_cosine": 0.603867769241333,
+          "pesq": 1.6606683731079102,
+          "stoi": 0.8803591723147861,
+          "sample_wav": "samples/mel_baseline__hifigan__probe-04.wav"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+numpy
+scipy
+librosa
+soundfile
+torch
+torchaudio
+scikit-learn
+jiwer
+transformers
+speechbrain
+pesq
+pystoi
+onnxruntime

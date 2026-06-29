@@ -1,0 +1,253 @@
+
+\documentclass[twocolumn]{article}
+
+\usepackage{preprint}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage[numbers,square]{natbib}
+
+% arXiv two-column template-style hyperlinks
+\hypersetup{
+  colorlinks=true,
+  linkcolor=purple,
+  urlcolor=blue,
+  citecolor=cyan,
+  anchorcolor=black
+}
+
+\bibliographystyle{unsrtnat}
+
+\title{Reconstruction Attacks on PCEN Spectrograms: A Negative Result and a Small Edge-Audio Case Study}
+
+\author{Alessandro Canonico\\Bocconi University, Milan}
+
+\date{}
+
+\begin{document}
+
+\twocolumn[{\begin{@twocolumnfalse}
+\maketitle
+
+\begin{abstract}
+Per-channel energy normalization (PCEN) is a useful adaptive preprocessing for
+acoustic event detection, but it is sometimes treated as if the
+many-to-one feature transformation also provides privacy. We test that assumption
+directly. We implement an oracle and a blind inverse PCEN attacker, reconstruct
+3 second speech windows with Griffin-Lim and an off-the-shelf HiFi-GAN vocoder,
+and measure intelligibility, speaker leakage, PESQ, and STOI against a plain
+log-mel baseline. On 200 LibriSpeech dev-clean clips, PCEN does not add a
+measurable privacy advantage over plain mel: oracle PCEN plus Griffin-Lim gives
+WER 0.101 [0.081, 0.122] versus 0.091 [0.072, 0.112] for mel, while HiFi-GAN
+has identical WER 0.267 [0.229, 0.305] under PCEN and mel. A blind inverse
+still gives WER 0.150 [0.123, 0.177] and speaker cosine 0.797 [0.789, 0.804].
+Planted phrases, including password and card number strings, survive
+the transform. We include the motivating edge-audio classifier as an audited
+case study rather than a deployment claim and is not presented as deployment-ready: the model is compact
+(1.83M parameters, 3.72 MB INT8 ONNX), but its base AUC is 0.804
+[0.793, 0.815] and the only measured per-site result fails to statistically support the target false-positive and recall gates; we therefore report it as an engineering audit rather than a deployment result.
+The main contribution is a
+reproducible attack-and-claim-audit harness, together with a negative result
+that prevents overclaiming PCEN as a privacy primitive.
+\end{abstract}
+
+\keywords{PCEN, audio privacy, reconstruction attacks, edge audio classification, claim auditing}
+\vspace{0.5cm}
+\end{@twocolumnfalse}}]
+
+\section{Introduction}
+
+PCEN was introduced as an adaptive time frequency preprocessing for acoustic event
+detection and related audio tasks \cite{lostanlen2019pcen}. Its temporal
+integration, adaptive gain control, and dynamic range compression, often improve
+robustness over a static log-mel representation. The same transform is
+many-to-one: phase is discarded, magnitudes are compressed, and an internal
+running smoother is not normally exported.
+
+Many-to-one is not the same as private. A defensible privacy statement needs a
+threat model and an empirical attack evaluation. This repository originally
+used PCEN as the input representation for a small edge classifier and treated
+the transform too strongly in informal project framing. This paper records the
+audit that corrected that claim.
+
+The paper has two linked parts. First, it evaluates whether PCEN adds privacy
+over a plain log-mel baseline against standard reconstruction attacks. Second,
+it reports the compact classifier only as a case study in claim discipline: the
+classifier is reproducible and efficient, but the data does not yet support
+deployment or cross-site generalization claims.
+
+\section{Threat Model}
+
+The attacker observes the PCEN tile consumed by the classifier: 64 mel bands by
+188 frames from a 3 second, 16 kHz mono window. The attacker knows the public
+feature configuration, including the PCEN defaults used by \texttt{librosa.pcen}
+with gain 0.98, bias 2.0, power 0.5, time constant 0.4 seconds, and
+\(\epsilon=10^{-6}\), applied to a mel spectrogram scaled by \(2^{31}\).
+
+The attacker does not observe the original waveform. In the realistic setting,
+the attacker also does not observe the PCEN running mean state \(M\). We test
+two inverse-PCEN settings:
+
+\begin{itemize}
+  \item \textbf{Oracle inverse}: exact closed-form inverse using the forward
+  running mean \(M\). This is a strongest-attacker upper bound.
+  \item \textbf{Blind inverse}: iterative inverse that estimates \(M\) from the
+  PCEN tile itself. This is the realistic attacker.
+\end{itemize}
+
+We compare both settings against a mel-baseline condition that reconstructs
+from the corresponding log-mel representation without PCEN. The PCEN-minus-mel
+delta is the measured privacy contribution of PCEN.
+
+\section{Attack Harness}
+
+The evaluation is implemented as repository test code. The forward PCEN
+implementation matches \texttt{librosa.pcen}; the oracle inverse round-trips
+to floating-point precision, and the blind inverse converges in 10 to 15
+iterations after peak normalization.
+
+We test two waveform reconstruction attacks. The classical attack uses
+Griffin-Lim phase recovery through \texttt{librosa.feature.inverse.mel\_to\_audio}
+with 60 iterations \cite{griffinlim1984}. The neural attack uses the
+SpeechBrain LibriTTS HiFi-GAN vocoder \cite{kong2020hifigan,speechbrain2021}.
+Because the classifier frontend has 64 mel bands and the vocoder expects 80, we
+use a public least-squares adapter from the 64-band basis to the 80-band basis.
+
+The main corpus is 200 deterministic 3 second clips from LibriSpeech dev-clean
+\cite{panayotov2015librispeech}. A separate hidden-phrase corpus contains five
+TTS-generated clips with planted phrases such as passwords and
+card number strings. Metrics are Whisper-tiny.en WER
+\cite{radford2022whisper}, ECAPA-TDNN speaker cosine, PESQ wideband, and STOI.
+All aggregate intervals are percentile bootstrap 95\% confidence intervals.
+
+\section{Reconstruction Results}
+
+Table~\ref{tab:privacy} gives the main LibriSpeech result. PCEN does not add a
+measurable privacy advantage over plain mel. Under Griffin-Lim, oracle PCEN
+has WER 0.101 [0.081, 0.122] versus mel WER 0.091 [0.072, 0.112]. Under
+HiFi-GAN, PCEN and mel have identical WER 0.267 [0.229, 0.305]. The blind
+attacker still reconstructs intelligible speech, with WER 0.150 [0.123,
+0.177] and speaker cosine 0.797 [0.789, 0.804], far above the chance cosine
+0.114 [0.095, 0.135].
+
+\begin{table}[t]
+\centering
+\tiny
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{llcc}
+\toprule
+Recovery & Attack & WER & Speaker cosine \\
+\midrule
+pcen\_oracle & Griffin-Lim & 0.101 [0.081, 0.122] & 0.841 [0.835, 0.847] \\
+pcen\_oracle & HiFi-GAN & 0.267 [0.229, 0.305] & 0.550 [0.539, 0.562] \\
+pcen\_blind & Griffin-Lim & 0.150 [0.123, 0.177] & 0.797 [0.789, 0.804] \\
+pcen\_blind & HiFi-GAN & 0.206 [0.175, 0.238] & 0.631 [0.621, 0.642] \\
+mel\_baseline & Griffin-Lim & 0.091 [0.072, 0.112] & 0.838 [0.832, 0.845] \\
+mel\_baseline & HiFi-GAN & 0.267 [0.229, 0.305] & 0.550 [0.539, 0.562] \\
+\bottomrule
+\end{tabular}
+\caption{Reconstruction leakage on LibriSpeech dev-clean, n=200. Intervals are bootstrap 95\% CIs.}
+\label{tab:privacy}
+\end{table}
+
+The hidden-phrase probes make the practical risk concrete. A phrase recognized
+by Whisper on the original as ``credit card number is 1-2-3-4-5-6'' is
+recovered verbatim across the reconstruction settings. A TTS pronunciation of
+``fortepiano'' is recognized as ``4 to PM'' on the original and is often
+recovered with the same text or a one-token spelling error. The leakage is not
+only aggregate intelligibility; sensitive strings can survive the feature
+pipeline.
+
+\section{Classifier Case Study}
+
+The motivating classifier is a CNN6-style encoder with squeeze-and-excitation,
+a GRU temporal layer, and multi-scale pooling. It has 1,829,444 parameters, a
+7.00 MB FP32 checkpoint, and a 3.72 MB static-INT8 ONNX export. Training uses
+AudioSet, UrbanSound8K, ESC-50, YouTube-derived ambient and scream clips, and a
+violence-audio dataset, with focal loss at \(\gamma=0.5\), cosine scheduling,
+strong augmentation, and environmental noise injection.
+
+The base classifier is not a validated deployment system. On the held-out test
+split it reaches AUC-ROC 0.804 [0.793, 0.815], accuracy 70.34\%
+[69.24, 71.41], threat recall 80.86\% [79.10, 82.50], and overall FPR
+34.18\% [32.85, 35.54]. Hard negatives are the main failure mode: speech FPR
+is 71.7\% [67.0, 76.0] and laughter FPR is 82.5\% [77.5, 86.6].
+
+Per-site fine-tuning was explored on one metro site as an engineering audit,
+not as an untouched final evaluation. The fine-tuning path used the base test
+split as a proxy validation and threshold-selection set, and the metro
+operating point was later selected from a checkpoint--threshold--aggregation
+sweep. The selected audit point uses the \texttt{metro\_tweak3} recipe, the
+pre-lever low-FPR threshold 0.601, and temporal-majority aggregation with
+\(k=2\). It gives 0/19 ambient false positives and 45/57 threat detections,
+but these are selected-point audit numbers rather than clean held-out
+deployment estimates. The Wilson 95\% upper bound on false positives is
+16.8\%, above the target 5\% gate. Threat recall is 78.9\% with Wilson 95\%
+CI [66.7, 87.5], whose upper bound is below the 88\% target. Therefore
+none of the deployment gates are statistically supported.
+
+\section{Baselines and Efficiency}
+
+The reproducible comparison against CNN14 is a footprint and latency
+comparison, not a matched accuracy comparison. SafeCommute has 1.83M
+parameters, while CNN14 has roughly 81.8M parameters, a 44.7x parameter ratio.
+On the same Ryzen 7 7435HS reference machine, the 8-thread benchmark reports
+median model-only latency 93.38 ms for CNN14 versus 6.09 ms for SafeCommute
+INT8 ONNX, a 15.3x ratio. A separate 1-thread run reports 226.28 ms for CNN14
+versus 23.66 ms for SafeCommute, a 9.6x ratio. End-to-end latency for
+SafeCommute, including librosa mel and PCEN preprocessing, is much higher than
+model-only latency: median 34.53 ms and p99 52.97 ms in the current 200-window
+run. The paper therefore reports both model-only and end-to-end numbers.
+
+\section{Data Availability and Reproducibility}
+
+Data are available through public upstream datasets and local re-generation scripts where licensing permits. The public repository retains the code, paper source, and generated JSON reports needed to audit the PCEN reconstruction result. Raw audio, prepared tensors, model checkpoints, and generated waveform reconstructions are not included in the release snapshot:
+
+\begin{itemize}
+  \item The local YouTube-derived metro and scream WAVs cannot be redistributed
+  as raw audio without a separate manifest and terms review.
+  \item The local violence-audio folder has 2000 WAVs and is YouTube-derived, but video IDs, offsets, and
+  redistribution terms are not captured in this repository.
+  \item Prepared tensors inherit the restrictions of their source audio and
+  should not be redistributed until all upstream licenses are cleared.
+  \item Privacy evaluation corpora are reproducible from LibriSpeech dev-clean
+  and generated hidden-phrase scripts, subject to the licenses of LibriSpeech
+  and the TTS/vocoder models used to generate the samples.
+  \item Generated or reconstructed privacy WAVs, if produced locally, are
+  bounded audit artifacts. They are not raw training data, are not covered by
+  the repository licenses, and remain subject to the upstream
+  LibriSpeech/TTS/vocoder terms.
+\end{itemize}
+
+\section{Limitations}
+
+This is a negative technical note, not a proof of a new privacy attack class.
+The adjacent literature already treats mel-family features as reconstructable
+attack surfaces rather than privacy mechanisms \cite{mestiri2024privacy,
+safeear2024}. The PCEN result is useful primarily because it prevents a
+specific overclaim and leaves a reusable audit harness.
+
+The classifier study is also limited. It has one real per-site evaluation,
+small held-out denominators, no cross-site confidence interval, and no matched
+classifier quality comparison against large audio models. Its strongest
+validated claims are compactness, reproducible metrics, and the failure of
+previously stronger deployment claims under confidence intervals.
+
+\section{Conclusion}
+
+PCEN should not be described as a privacy primitive for edge audio classifiers.
+Off-the-shelf reconstruction attacks recover intelligible speech and speaker
+identity from PCEN tiles, and PCEN does not measurably improve over a plain
+log-mel baseline in this evaluation. The associated classifier is compact and
+fully auditable, but current detection results support only a research case
+study with explicit limitations. The release should prioritize reproducibility
+and claim hygiene over deployment framing.
+
+\bibliography{references}
+
+\end{document}
